@@ -1,10 +1,10 @@
-package org.xersys.imbentaryo.search;
+package org.xersys.inventory.search;
 
 import java.sql.ResultSet;
 import org.json.simple.JSONObject;
-import org.xersys.kumander.iface.XNautilus;
-import org.xersys.kumander.util.MiscUtil;
-import org.xersys.kumander.util.SQLUtil;
+import org.xersys.commander.iface.XNautilus;
+import org.xersys.commander.util.MiscUtil;
+import org.xersys.commander.util.SQLUtil;
 
 
 public class InvSearchFactory{
