@@ -109,11 +109,11 @@ public class InvSearchFactory{
                     ", sDescript" +
                     ", sBriefDsc" +
                     ", sAltBarCd" +
-                    ", sCategrCd" +
-                    ", sBrandCde" +
-                    ", sModelCde" +
-                    ", sColorCde" +
-                    ", sInvTypCd" +
+                    ", IFNULL(sCategrCd, '') sCategrCd" +
+                    ", IFNULL(sBrandCde, '') sBrandCde" +
+                    ", IFNULL(sModelCde, '') sModelCde" +
+                    ", IFNULL(sColorCde, '') sColorCde" +
+                    ", IFNULL(sInvTypCd, '') sInvTypCd" +
                     ", nUnitPrce" +
                     ", nSelPrce1" +
                     ", cComboInv" +
@@ -133,11 +133,11 @@ public class InvSearchFactory{
                     ", a.sDescript" +
                     ", a.sBriefDsc" +
                     ", a.sAltBarCd" +
-                    ", a.sCategrCd" +
-                    ", a.sBrandCde" +
-                    ", a.sModelCde" +
-                    ", a.sColorCde" +
-                    ", a.sInvTypCd" +
+                    ", IFNULL(a.sCategrCd, '') sCategrCd" +
+                    ", IFNULL(a.sBrandCde, '') sBrandCde" +
+                    ", IFNULL(a.sModelCde, '') sModelCde" +
+                    ", IFNULL(a.sColorCde, '') sColorCde" +
+                    ", IFNULL(a.sInvTypCd, '') sInvTypCd" +
                     ", a.nUnitPrce" +
                     ", a.nSelPrce1" +
                     ", a.cComboInv" +
