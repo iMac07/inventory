@@ -80,10 +80,10 @@ public class InvSearchEngine implements XSearch{
                 loJSON.put("colname", lsColName);
             }
         } else if (foFactory == Type.searchInvBranchComplex){
-            lsColName = "sBarCodex»sDescript»nUnitPrce»nSelPrce1»sBrandCde»sModelCde»sColorCde»sCategrCd»sInvTypCd»sStockIDx";
+            lsColName = "sBarCodex»sDescript»nQtyOnHnd»nSelPrce1»sBrandCde»sModelCde»sColorCde»sStockIDx»nUnitPrce";
             loJSON = _instance.searchBranchInventory((String) foValue, lsColName);
             if ("success".equals((String) loJSON.get("result"))) {
-                loJSON.put("headers", "Part Number»Description»Inv. Price»SRP»Brand»Model»Color»Category»Inv. Type»ID");
+                loJSON.put("headers", "Part Number»Description»On Hand»SRP»Brand»Model»Color»ID»Unit Price");
                 loJSON.put("colname", lsColName);
             }
         }
