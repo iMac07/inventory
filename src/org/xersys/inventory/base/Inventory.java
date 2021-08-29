@@ -14,6 +14,7 @@ public class Inventory {
         p_oSearch = new InvSearchEngine(p_oNautilus);
     }
     
+    
     public InvSearchEngine Search(){
         return p_oSearch;
     }
