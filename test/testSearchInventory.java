@@ -39,7 +39,7 @@ public class testSearchInventory {
             System.out.println("Application driver successfully initialized.");
         
         
-        InvSearchF instance = new InvSearchF(loNautilus, InvSearchF.SearchType.searchStocks);
+        InvSearchF instance = new InvSearchF(loNautilus, InvSearchF.SearchType.searchBranchStocks);
         instance.setKey("sBarCodex");
         instance.setValue("");
         instance.setExact(false);

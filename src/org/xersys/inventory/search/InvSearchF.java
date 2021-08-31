@@ -9,6 +9,8 @@ import org.xersys.commander.util.MiscUtil;
 import org.xersys.commander.util.SQLUtil;
 
 public class InvSearchF implements iSearch{
+    private final int DEFAULT_MAX_RESULT = 25;
+    
     private XNautilus _app = null;  
     private String _message = "";
     private boolean _initialized = false;
@@ -38,7 +40,7 @@ public class InvSearchF implements iSearch{
             _search_key = "";
             _search_value = null;
             _search_exact = false;
-            _search_result_max_row = 15;
+            _search_result_max_row = DEFAULT_MAX_RESULT;
             
             _filter = new ArrayList<>();
             _filter_value = new ArrayList<>();
@@ -48,22 +50,6 @@ public class InvSearchF implements iSearch{
             _initialized = true;
         }
     }
-    
-    /**
-     * setType(Object foValue)
-     * \n
-     * Set the search type to use in this object
-     * 
-     * @param foValue
-     * 
-     * \n\t please see SearchType()
-     */
-//    @Override
-//    public void setType(Object foValue) {
-//        _search_type = (SearchType) foValue;
-//        
-//        if (_search_type != null) initFilterList();
-//    }
 
     /**
      * setKey(String fsValue)
@@ -112,63 +98,45 @@ public class InvSearchF implements iSearch{
     public void setMaxResult(int fnValue) {
         _search_result_max_row = fnValue;
     }
-
-    /**
-     * String getFilterList()
-     * \n
-     * Get the allowable fields to be used search filtering
-     * 
-     * @return String
-     */
-    @Override
-    public String getFilterList() {
-        if (!_initialized) {
-            _message = "Object was not initialized.";
-            return "";
-        }
-        
-        String lsValue = "Search available filter list to use:";
-        
-        for (int lnCtr = 0; lnCtr <= _filter_list.size()-1; lnCtr++) 
-            lsValue += "\n\t" + _filter_list.get(lnCtr) + " - " + _filter_description.get(lnCtr);
-        
-        return lsValue;
-    }
     
     /**
-     * getFilterListCount()
+     * getValue()
      * \n
-     * Get count of available filters
+     * Get the search key value
      * 
      * @return 
      */
     @Override
-    public int getFilterListCount() {
-        if (!_initialized) {
-            _message = "Object was not initialized.";
-            return 0;
-        }
-        
-        return _filter_list.size();
+    public Object getValue(){
+        return _search_value;
+    }
+    
+    /**
+     * getMaxResult()
+     * \n
+     * Set the maximum row of results in searching
+     * @return 
+     */
+    @Override
+    public int getMaxResult() {
+        return _search_result_max_row;
     }
 
     /**
      * getFilterListDescription(int fnRow)
      * \n
-     * Get the description of a particular filter.
+     * Get the description of filter fields.
      * 
-     * @param fnRow - index of the filter on ArrayList
-     * 
-     * @return String
+     * @return ArrayList
      */
     @Override
-    public String getFilterListDescription(int fnRow) {
+    public ArrayList<String> getFilterListDescription() {
         if (!_initialized) {
             _message = "Object was not initialized.";
-            return "";
+            return null;
         }
         
-        return _filter_description.get(fnRow);
+        return _filter_description;
     }
     
     /**
@@ -206,25 +174,20 @@ public class InvSearchF implements iSearch{
     }   
 
     /**
-     * String getFilter()()
+     * getFilter()()
      * \n
      * Get the list of fields and value the user set for filtering
      * 
-     * @return String
+     * @return ArrayList
      */
     @Override
-    public String getFilter() {
+    public ArrayList getFilter() {
         if (!_initialized) {
             _message = "Object was not initialized.";
-            return "";
+            return null;
         }
         
-        String lsValue = "Search filter you defined:";
-        
-        for (int lnCtr = 0; lnCtr <= _filter.size()-1; lnCtr++) 
-            lsValue = "\n\t" + _filter.get(lnCtr) + " = " + _filter_value.get(lnCtr);
-        
-        return lsValue;
+        return _filter;
     }
 
     /**
@@ -247,48 +210,88 @@ public class InvSearchF implements iSearch{
             return -1;
         }
         
-        //check if the field was already used
+        if (_filter.isEmpty()){
+            _filter.add(fsField);
+            _filter_value.add(foValue);
+            return _filter.size()-1;
+        }
+        
         for (int lnCtr = 0; lnCtr <= _filter.size()-1; lnCtr++){
             if (_filter.get(lnCtr).toLowerCase().equals(fsField.toLowerCase())){
-                _filter.set(lnCtr, fsField);
                 _filter_value.set(lnCtr, foValue);
                 return lnCtr;
             }
         }
-        
-        //add new filter
+            
         _filter.add(fsField);
         _filter_value.add(foValue);
-        
         return _filter.size()-1;
     }
     
     /**
-     * removeFilter(int fnRow)
+     * getFilterValue(String fsField)
+     * \n
+     * Get the value of a particular filter
+     * 
+     * @param fsField  - filter field to retrieve value
+     * 
+     * @return Object
+     */
+    @Override
+    public Object getFilterValue(String fsField) {
+        for (int lnCtr = 0; lnCtr <= _filter.size()-1; lnCtr++){
+            if (_filter.get(lnCtr).toLowerCase().equals(fsField.toLowerCase())){
+                return _filter_value.get(lnCtr);
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * removeFilter(String fsField)
      * \n
      * Removes filter on searching
      * 
-     * @param  fnRow - index of filter field in the in the ArrayList
+     * @param  fsField - filter field to remove in the in the ArrayList
      * 
      * @return Boolean
      * 
      * \n\t please see getFilterList() for available fields to use for filtering
      */
     @Override
-    public boolean removeFilter(int fnRow) {
+    public boolean removeFilter(String fsField) {
         if (!_initialized) {
             _message = "Object was not initialized.";
             return false;
         }
         
-        if (!_filter.isEmpty()){
-            _filter.remove(fnRow);
-            _filter_value.remove(fnRow);
-            return true;
+        if (!_filter.isEmpty()){        
+            for (int lnCtr = 0; lnCtr <= _filter.size()-1; lnCtr++){
+                if (_filter.get(lnCtr).toLowerCase().equals(fsField.toLowerCase())){
+                    _filter.remove(lnCtr);
+                    _filter_value.remove(lnCtr);
+                    return true;
+                }
+            }
         }
         
         _message = "Filter variable was empty.";
         return false;
+    }
+    
+    /**
+     * removeFilter()
+     * \n
+     * Removes all filter on searching
+     * 
+     * @return Boolean
+     */
+    @Override
+    public boolean removeFilter() {
+        _filter.clear();
+        _filter_value.clear();
+        return true;
     }
 
     
@@ -326,13 +329,11 @@ public class InvSearchF implements iSearch{
         //get the query for the particular search type
         if (null != _search_type)switch (_search_type) {
             case searchStocks:
-                lsSQL = getSQ_Inventory(); break;
             case searchStocksWithOtherInfo:
-                break;
+                lsSQL = getSQ_Inventory(); break;
             case searchBranchStocks:
-                break;
             case searchBranchStocksWithOtherInfo:
-                break;
+                lsSQL = getSQ_Inv_Master(); break;
             default:
                 break;
         }
@@ -352,7 +353,7 @@ public class InvSearchF implements iSearch{
         //add filter on query
         if (!_filter.isEmpty()){
             for (int lnCtr = 0; lnCtr <= _filter.size()-1; lnCtr++){
-                lsSQL = MiscUtil.addCondition(lsSQL, _filter.get(lnCtr) + " = " + SQLUtil.toSQL(_filter_value.get(lnCtr)));
+                lsSQL = MiscUtil.addCondition(lsSQL, getFilterField(_filter.get(lnCtr)) + " LIKE " + SQLUtil.toSQL(_filter_value.get(lnCtr)));
             }
         }
         
@@ -398,20 +399,45 @@ public class InvSearchF implements iSearch{
                 _filter_list.add("sModelCde"); _filter_description.add("Model Code");
                 
                 _fields.add("sBarCodex"); _fields_descript.add("Part No.");
-                _fields.add("sDescript"); _fields_descript.add("Brand Code");
-                _fields.add("sBrandCde"); _fields_descript.add("Model Code");
-                _fields.add("sModelCde"); _fields_descript.add("Description");
-                _fields.add("sColorCde"); _fields_descript.add("Color Code");
+                _fields.add("sDescript"); _fields_descript.add("Description");
+                _fields.add("sBrandCde"); _fields_descript.add("Brand");
+                _fields.add("sModelCde"); _fields_descript.add("Model");
+                _fields.add("sColorCde"); _fields_descript.add("Color");
                 break;
             case searchStocksWithOtherInfo:
                 break;
             case searchBranchStocks:
+                _filter_list.add("a.sBrandCde"); _filter_description.add("Brand Code");
+                _filter_list.add("a.sCategrCd"); _filter_description.add("Category Code");
+                _filter_list.add("a.sColorCde"); _filter_description.add("Color Code");
+                _filter_list.add("a.sInvTypCd"); _filter_description.add("Inv. Type Code");
+                _filter_list.add("a.sModelCde"); _filter_description.add("Model Code");
+                
+                _fields.add("sBarCodex"); _fields_descript.add("Part No.");
+                _fields.add("sDescript"); _fields_descript.add("Description");
+                _fields.add("nQtyOnHnd"); _fields_descript.add("On Hand");
+                _fields.add("sBrandCde"); _fields_descript.add("Brand");
+                _fields.add("sModelCde"); _fields_descript.add("Model");
+                _fields.add("sColorCde"); _fields_descript.add("Color");
                 break;
             case searchBranchStocksWithOtherInfo:
                 break;
             default:
                 break;
         }
+    }
+    
+    private String getFilterField(String fsValue){
+        String lsField = "";
+        
+        for(int lnCtr = 0; lnCtr <= _filter_description.size()-1; lnCtr++){
+            if (_filter_description.get(lnCtr).toLowerCase().equals(fsValue.toLowerCase())){
+                lsField = _filter_list.get(lnCtr);
+                break;
+            }
+        }
+        
+        return lsField;
     }
     
     private String getSQ_Inventory(){
@@ -435,6 +461,47 @@ public class InvSearchF implements iSearch{
                     ", sSupersed" +
                     ", cRecdStat" +
                 " FROM Inventory";
+    }
+    
+    private String getSQ_Inv_Master(){
+        return "SELECT" +
+                    "  a.sStockIDx" +
+                    ", a.sBarCodex" +
+                    ", a.sDescript" +
+                    ", a.sBriefDsc" +
+                    ", a.sAltBarCd" +
+                    ", a.sCategrCd" +
+                    ", a.sBrandCde" +
+                    ", a.sModelCde" +
+                    ", a.sColorCde" +
+                    ", a.sInvTypCd" +
+                    ", a.nUnitPrce" +
+                    ", a.nSelPrce1" +
+                    ", a.cComboInv" +
+                    ", a.cWthPromo" +
+                    ", a.cSerialze" +
+                    ", a.cInvStatx" +
+                    ", a.sSupersed" +
+                    ", b.sBranchCd" +
+                    ", b.sLocatnCd" +
+                    ", b.nBinNumbr" +
+                    ", b.dAcquired" +
+                    ", b.dBegInvxx" +
+                    ", b.nBegQtyxx" +
+                    ", b.nQtyOnHnd" +
+                    ", b.nMinLevel" +
+                    ", b.nMaxLevel" +
+                    ", b.nAvgMonSl" +
+                    ", b.nAvgCostx" +
+                    ", b.cClassify" +
+                    ", b.nBackOrdr" +
+                    ", b.nResvOrdr" +
+                    ", b.nFloatQty" +
+                    ", b.cRecdStat" +
+                    ", b.dDeactive" +
+                " FROM Inventory a" +
+                    ", Inv_Master b" +
+                " WHERE a.sStockIDx = b.sStockIDx";
     }
     
     //let outside objects can call this variable without initializing the class.
