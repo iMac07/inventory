@@ -390,16 +390,15 @@ public class InvSearchF implements iSearch{
         
         if (null != _search_type)switch (_search_type) {
             case searchStocks:
-                _filter_list.add("sBarCodex"); _filter_description.add("Part No.");
-                _filter_list.add("sBrandCde"); _filter_description.add("Brand Code");
-                _filter_list.add("sCategrCd"); _filter_description.add("Category Code");
-                _filter_list.add("sColorCde"); _filter_description.add("Color Code");
-                _filter_list.add("sDescript"); _filter_description.add("Description");
-                _filter_list.add("sInvTypCd"); _filter_description.add("Inv. Type Code");
-                _filter_list.add("sModelCde"); _filter_description.add("Model Code");
+                _filter_list.add("a.sBrandCde"); _filter_description.add("Brand Code");
+                _filter_list.add("a.sCategrCd"); _filter_description.add("Category Code");
+                _filter_list.add("a.sColorCde"); _filter_description.add("Color Code");
+                _filter_list.add("a.sInvTypCd"); _filter_description.add("Inv. Type Code");
+                _filter_list.add("a.sModelCde"); _filter_description.add("Model Code");
                 
                 _fields.add("sBarCodex"); _fields_descript.add("Part No.");
                 _fields.add("sDescript"); _fields_descript.add("Description");
+                _fields.add("nQtyOnHnd"); _fields_descript.add("On Hand");
                 _fields.add("sBrandCde"); _fields_descript.add("Brand");
                 _fields.add("sModelCde"); _fields_descript.add("Model");
                 _fields.add("sColorCde"); _fields_descript.add("Color");
@@ -442,39 +441,16 @@ public class InvSearchF implements iSearch{
     
     private String getSQ_Inventory(){
         return "SELECT" +
-                    "  sStockIDx" +
-                    ", sBarCodex" +
-                    ", sDescript" +
-                    ", sBriefDsc" +
-                    ", sAltBarCd" +
-                    ", IFNULL(sCategrCd, '') sCategrCd" +
-                    ", IFNULL(sBrandCde, '') sBrandCde" +
-                    ", IFNULL(sModelCde, '') sModelCde" +
-                    ", IFNULL(sColorCde, '') sColorCde" +
-                    ", IFNULL(sInvTypCd, '') sInvTypCd" +
-                    ", nUnitPrce" +
-                    ", nSelPrce1" +
-                    ", cComboInv" +
-                    ", cWthPromo" +
-                    ", cSerialze" +
-                    ", cInvStatx" +
-                    ", sSupersed" +
-                    ", cRecdStat" +
-                " FROM Inventory";
-    }
-    
-    private String getSQ_Inv_Master(){
-        return "SELECT" +
                     "  a.sStockIDx" +
                     ", a.sBarCodex" +
                     ", a.sDescript" +
                     ", a.sBriefDsc" +
                     ", a.sAltBarCd" +
-                    ", a.sCategrCd" +
-                    ", a.sBrandCde" +
-                    ", a.sModelCde" +
-                    ", a.sColorCde" +
-                    ", a.sInvTypCd" +
+                    ", IFNULL(a.sCategrCd, '') sCategrCd" +
+                    ", IFNULL(a.sBrandCde, '') sBrandCde" +
+                    ", IFNULL(a.sModelCde, '') sModelCde" +
+                    ", IFNULL(a.sColorCde, '') sColorCde" +
+                    ", IFNULL(a.sInvTypCd, '') sInvTypCd" +
                     ", a.nUnitPrce" +
                     ", a.nSelPrce1" +
                     ", a.cComboInv" +
@@ -488,7 +464,48 @@ public class InvSearchF implements iSearch{
                     ", b.dAcquired" +
                     ", b.dBegInvxx" +
                     ", b.nBegQtyxx" +
-                    ", b.nQtyOnHnd" +
+                    ", IFNULL(b.nQtyOnHnd, 0) nQtyOnHnd" +
+                    ", b.nMinLevel" +
+                    ", b.nMaxLevel" +
+                    ", b.nAvgMonSl" +
+                    ", b.nAvgCostx" +
+                    ", b.cClassify" +
+                    ", b.nBackOrdr" +
+                    ", b.nResvOrdr" +
+                    ", b.nFloatQty" +
+                    ", b.cRecdStat" +
+                    ", b.dDeactive" +
+                " FROM Inventory a" + 
+                    " LEFT JOIN Inv_Master b ON a.sStockIDx = b.sStockIDx" +
+                        " AND b.sBranchCd = " + SQLUtil.toSQL((String) _app.getBranchConfig("sBranchCd"));
+    }
+    
+    private String getSQ_Inv_Master(){
+        return "SELECT" +
+                    "  a.sStockIDx" +
+                    ", a.sBarCodex" +
+                    ", a.sDescript" +
+                    ", a.sBriefDsc" +
+                    ", a.sAltBarCd" +
+                    ", IFNULL(a.sCategrCd, '') sCategrCd" +
+                    ", IFNULL(a.sBrandCde, '') sBrandCde" +
+                    ", IFNULL(a.sModelCde, '') sModelCde" +
+                    ", IFNULL(a.sColorCde, '') sColorCde" +
+                    ", IFNULL(a.sInvTypCd, '') sInvTypCd" +
+                    ", a.nUnitPrce" +
+                    ", a.nSelPrce1" +
+                    ", a.cComboInv" +
+                    ", a.cWthPromo" +
+                    ", a.cSerialze" +
+                    ", a.cInvStatx" +
+                    ", a.sSupersed" +
+                    ", b.sBranchCd" +
+                    ", b.sLocatnCd" +
+                    ", b.nBinNumbr" +
+                    ", b.dAcquired" +
+                    ", b.dBegInvxx" +
+                    ", b.nBegQtyxx" +
+                    ", IFNULL(b.nQtyOnHnd, 0) nQtyOnHnd" +
                     ", b.nMinLevel" +
                     ", b.nMaxLevel" +
                     ", b.nAvgMonSl" +
@@ -501,7 +518,8 @@ public class InvSearchF implements iSearch{
                     ", b.dDeactive" +
                 " FROM Inventory a" +
                     ", Inv_Master b" +
-                " WHERE a.sStockIDx = b.sStockIDx";
+                " WHERE a.sStockIDx = b.sStockIDx" +
+                    " AND b.sBranchCd = " + SQLUtil.toSQL((String) _app.getBranchConfig("sBranchCd"));
     }
     
     //let outside objects can call this variable without initializing the class.
