@@ -4,7 +4,6 @@ import org.xersys.commander.iface.LRecordMas;
 import com.mysql.jdbc.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import javax.sql.rowset.CachedRowSet;
 import javax.sql.rowset.RowSetFactory;
 import javax.sql.rowset.RowSetProvider;
@@ -20,15 +19,22 @@ import org.xersys.commander.iface.XRecord;
 import org.xersys.commander.util.MiscUtil;
 import org.xersys.commander.util.SQLUtil;
 import org.xersys.commander.util.StringUtil;
-import org.xersys.commander.util.Temp_Transactions;
 import org.xersys.inventory.search.InvSearchF;
 import org.xersys.parameters.search.ParamSearchF;
 
 public class Inventory implements XRecord{    
+    private final String MASTER_TABLE = "Inventory";
+    
     private final XNautilus p_oNautilus;
     private final String p_sBranchCd;
     private final boolean p_bWithParent;
     
+    private final InvSearchF p_oStocks;
+    private final ParamSearchF p_oBrand;
+    private final ParamSearchF p_oModel;
+    private final ParamSearchF p_oInvType;
+    
+    private InvMaster p_oInvMaster;
     private LRecordMas p_oListener;
     
     private String p_sMessagex;
@@ -37,16 +43,14 @@ public class Inventory implements XRecord{
     
     private CachedRowSet p_oMaster;
     
-    private final InvSearchF p_oStocks;
     
-    private final ParamSearchF p_oBrand;
-    private final ParamSearchF p_oModel;
-    private final ParamSearchF p_oInvType;
     
     public Inventory(XNautilus foNautilus, String fsBranchCd, boolean fbWithParent){
         p_oNautilus = foNautilus;
         p_sBranchCd = fsBranchCd;
         p_bWithParent = fbWithParent;
+        
+        p_oInvMaster = new InvMaster(foNautilus, fsBranchCd, true);
         
         p_oBrand = new ParamSearchF(p_oNautilus, ParamSearchF.SearchType.searchBrand);
         p_oModel = new ParamSearchF(p_oNautilus, ParamSearchF.SearchType.searchModel);
@@ -83,6 +87,8 @@ public class Inventory implements XRecord{
             p_oMaster.populate(loRS);
             MiscUtil.close(loRS);
             addMaster();
+            
+            p_oInvMaster = new InvMaster(p_oNautilus, p_sBranchCd, true);
         } catch (SQLException ex) {
             setMessage(ex.getMessage());
             return false;
@@ -91,15 +97,9 @@ public class Inventory implements XRecord{
         p_nEditMode = EditMode.ADDNEW;
         return true;
     }
-    
-    @Override
-    public boolean NewRecord(String fsTmpTrans) {
-        System.out.println(this.getClass().getSimpleName() + ".NewRecord(String fsTmpTrans)");
-        return false;
-    }
 
     @Override
-    public boolean SaveRecord(boolean fbConfirmed) {
+    public boolean SaveRecord() {
         System.out.println(this.getClass().getSimpleName() + ".SaveRecord()");
         
         if (p_nEditMode != EditMode.ADDNEW &&
@@ -108,7 +108,9 @@ public class Inventory implements XRecord{
             return false;
         }
         
+        setMessage("");
         String lsSQL = "";
+        
         
         if (!isEntryOK()) return false;
 
@@ -118,37 +120,58 @@ public class Inventory implements XRecord{
             if ("".equals((String) getMaster("sStockIDx"))){ //new record
                 Connection loConn = getConnection();
 
-                p_oMaster.updateObject("sStockIDx", MiscUtil.getNextCode("Inventory", "sStockIDx", true, loConn, p_sBranchCd));
+                p_oMaster.updateObject("sStockIDx", MiscUtil.getNextCode(MASTER_TABLE, "sStockIDx", true, loConn, p_sBranchCd));
                 p_oMaster.updateObject("dModified", p_oNautilus.getServerDate());
                 p_oMaster.updateRow();
                 
                 if (!p_bWithParent) MiscUtil.close(loConn);
                 
-                lsSQL = MiscUtil.rowset2SQL(p_oMaster, "Inventory", "xBrandNme;xModelNme;xInvTypNm");
+                lsSQL = MiscUtil.rowset2SQL(p_oMaster, MASTER_TABLE, "xBrandNme;xModelNme;xInvTypNm");
             } else {//old record
+                lsSQL = MiscUtil.rowset2SQL(p_oMaster, MASTER_TABLE, "xBrandNme;xModelNme;xInvTypNm",
+                            "sStockIDx = " + SQLUtil.toSQL(p_oMaster.getString("sStockIDx")));
                 
-            }
-            
-            if (lsSQL.equals("")){
-                if (!p_bWithParent) p_oNautilus.rollbackTrans();
-                
-                setMessage("No record to update");
-                return false;
-            }
-            
-            if(p_oNautilus.executeUpdate(lsSQL, "Inventory", p_sBranchCd, "") <= 0){
-                if(!p_oNautilus.getMessage().isEmpty())
-                    setMessage(p_oNautilus.getMessage());
-                else
-                    setMessage("No record updated");
-            } 
+                if (!lsSQL.equals("")){
+                    if(p_oNautilus.executeUpdate(lsSQL, MASTER_TABLE, p_sBranchCd, "") <= 0){
+                        if(!p_oNautilus.getMessage().isEmpty())
+                            setMessage(p_oNautilus.getMessage());
+                        else
+                            setMessage("No record updated");
+                    }
+                }
+            }            
 
-            if (!p_bWithParent) {
-                if(!p_oNautilus.getMessage().isEmpty())
+            if (!lsSQL.isEmpty()){
+                if(p_oNautilus.executeUpdate(lsSQL, MASTER_TABLE, p_sBranchCd, "") <= 0){
+                    if(!p_oNautilus.getMessage().isEmpty())
+                        setMessage(p_oNautilus.getMessage());
+                    else
+                        setMessage("No record updated");
+                } 
+            }
+            
+            if (!p_bWithParent){
+                if (!p_sMessagex.isEmpty()){
+                    p_oNautilus.rollbackTrans();
+                    return false;
+                }
+            }
+            
+            if (p_nEditMode == EditMode.UPDATE){
+                if (p_oInvMaster.getEditMode() == EditMode.ADDNEW){
+                    p_oInvMaster.setMaster("sStockIDx", getMaster("sStockIDx"));
+                    if (!p_oInvMaster.SaveRecord()){
+                        setMessage(p_oInvMaster.getMessage());
+                    }
+                }
+            }
+            
+            if (!p_bWithParent){
+                if (!p_sMessagex.isEmpty())
                     p_oNautilus.rollbackTrans();
                 else
-                    p_oNautilus.commitTrans();
-            }    
+                    p_oNautilus.commitTrans();        
+            }
         } catch (SQLException ex) {
             if (!p_bWithParent) p_oNautilus.rollbackTrans();
             ex.printStackTrace();
@@ -156,15 +179,18 @@ public class Inventory implements XRecord{
             return false;
         }
         
-        p_nEditMode = EditMode.UNKNOWN;
-        
-        return true;
+        if (p_sMessagex.isEmpty()){
+            p_nEditMode = EditMode.UNKNOWN;
+            return true;
+        } else return false;
     }
 
     @Override
     public boolean UpdateRecord() {
-        p_nEditMode = EditMode.UPDATE;
-        return false;
+        if (p_nEditMode == EditMode.READY){
+            p_nEditMode = EditMode.UPDATE;
+            return true;
+        } else return false;
     }
 
     @Override
@@ -194,7 +220,9 @@ public class Inventory implements XRecord{
             p_oMaster.populate(loRS);
             MiscUtil.close(loRS);
             
-            if (p_oMaster.size() == 1) {                            
+            if (p_oMaster.size() == 1) {                     
+                p_oInvMaster.OpenRecord(fsValue);
+                
                 p_nEditMode  = EditMode.READY;
                 return true;
             }
@@ -223,11 +251,6 @@ public class Inventory implements XRecord{
     public boolean ActivateRecord(String fsTransNox) {
         return false;
     }
-
-    @Override
-    public ArrayList<Temp_Transactions> TempTransactions() {
-        return null;
-    }
     
     @Override
     public String getMessage() {
@@ -238,11 +261,26 @@ public class Inventory implements XRecord{
     public void setListener(Object foListener) {
         p_oListener = (LRecordMas) foListener;
     }
-    
+
     @Override
-    public void setSaveToDisk(boolean fbValue) {
+    public Object getMaster(String fsFieldNm){
+        try {
+            p_oMaster.first();
+            switch (fsFieldNm){
+                case "nBinNumbr":
+                case "dAcquired":
+                case "dBegInvxx":
+                case "nBegQtyxx":
+                    return p_oInvMaster.getMaster(fsFieldNm);
+                default:
+                    return p_oMaster.getObject(fsFieldNm);
+            }
+        } catch (SQLException ex) {
+            return null;
+        }
     }
 
+    @Override
     public void setMaster(String fsFieldNm, Object foValue){
         String lsProcName = this.getClass().getSimpleName() + ".setMaster()";
         
@@ -277,14 +315,21 @@ public class Inventory implements XRecord{
                     
                     p_oMaster.updateRow();
                     
-                    p_oListener.MasterRetreive(fsFieldNm, p_oMaster.getObject(fsFieldNm));
+                    if (p_oListener != null) p_oListener.MasterRetreive(fsFieldNm, p_oMaster.getObject(fsFieldNm));
+                    break;
+                case "nBinNumbr":
+                case "dAcquired":
+                case "dBegInvxx":
+                case "nBegQtyxx":
+                    p_oInvMaster.setMaster(fsFieldNm, foValue);
+                    if (p_oListener != null) p_oListener.MasterRetreive(fsFieldNm, p_oInvMaster.getMaster(fsFieldNm));
                     break;
                 default:
                     p_oMaster.first();
                     p_oMaster.updateObject(fsFieldNm, foValue);
                     p_oMaster.updateRow();
 
-                    p_oListener.MasterRetreive(fsFieldNm, p_oMaster.getObject(fsFieldNm));
+                    if (p_oListener != null) p_oListener.MasterRetreive(fsFieldNm, p_oMaster.getObject(fsFieldNm));
             }
 
         } catch (SQLException e) {
@@ -292,10 +337,9 @@ public class Inventory implements XRecord{
             setMessage("SQLException on " + lsProcName + ". Please inform your System Admin.");
         }
     }
-
-    public Object getMaster(String fsFieldNm) throws SQLException{
-        p_oMaster.first();
-        return p_oMaster.getObject(fsFieldNm);
+    
+    public InvMaster getInvMaster(){
+        return p_oInvMaster;
     }
     
     public JSONObject searchStocks(String fsKey, Object foValue, boolean fbExact){
@@ -315,20 +359,15 @@ public class Inventory implements XRecord{
         p_oModel.setValue(foValue);
         p_oModel.setExact(fbExact);
         
-        try {
-            if (((String) getMaster("sInvTypCd")).isEmpty())
-                p_oModel.removeFilter("Inv. Type Code");
-            else
-                p_oModel.addFilter("Inv. Type Code", (String) getMaster("sInvTypCd"));
-            
-            if (((String) getMaster("sBrandCde")).isEmpty())
-                p_oModel.removeFilter("Brand Code");
-            else
-                p_oModel.addFilter("Brand Code", (String) getMaster("sBrandCde"));
-        } catch (SQLException ex) {
-            ex.printStackTrace();
-            return null;
-        }
+        if (((String) getMaster("sInvTypCd")).isEmpty())
+            p_oModel.removeFilter("Inv. Type Code");
+        else
+            p_oModel.addFilter("Inv. Type Code", (String) getMaster("sInvTypCd"));
+
+        if (((String) getMaster("sBrandCde")).isEmpty())
+            p_oModel.removeFilter("Brand Code");
+        else
+            p_oModel.addFilter("Brand Code", (String) getMaster("sBrandCde"));
         
         return p_oModel.Search();
     }
@@ -342,16 +381,11 @@ public class Inventory implements XRecord{
         p_oBrand.setValue(foValue);
         p_oBrand.setExact(fbExact);
         
-        try {
-            if (((String) getMaster("sInvTypCd")).isEmpty())
-                p_oBrand.removeFilter("Inv. Type Code");
-            else
-                p_oBrand.addFilter("Inv. Type Code", (String) getMaster("sInvTypCd"));
-        } catch (SQLException ex) {
-            ex.printStackTrace();
-            return null;
-        }
-        
+        if (((String) getMaster("sInvTypCd")).isEmpty())
+            p_oBrand.removeFilter("Inv. Type Code");
+        else
+            p_oBrand.addFilter("Inv. Type Code", (String) getMaster("sInvTypCd"));
+
         return p_oBrand.Search();
     }
     
@@ -530,7 +564,7 @@ public class Inventory implements XRecord{
                     ", IFNULL(b.sDescript, '') xBrandNme" +
                     ", IFNULL(c.sDescript, '') xModelNme" +
                     ", IFNULL(d.sDescript, '') xInvTypNm" +
-                " FROM Inventory a" +
+                " FROM " + MASTER_TABLE + " a" +
                     " LEFT JOIN Brand b ON a.sBrandCde = b.sBrandCde" +
                     " LEFT JOIN Model c ON a.sModelCde = c.sModelCde" +
                     " LEFT JOIN Inv_Type d ON a.sInvTypCd = d.sInvTypCd";
