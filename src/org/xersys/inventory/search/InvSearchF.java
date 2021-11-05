@@ -334,6 +334,12 @@ public class InvSearchF implements iSearch{
             case searchBranchStocks:
             case searchBranchStocksWithOtherInfo:
                 lsSQL = getSQ_Inv_Master(); break;
+            case searchStocks4MCModel:
+                lsSQL = getSQ_MC_Model(); break;
+            case searchMCSerial:
+                lsSQL = getSQ_MC_Serial(); break;
+            case searchSPInvRequest:
+                lsSQL = MiscUtil.addCondition(getSQ_SPInv_Request(), "sInvTypCd = 'SP'"); break;
             default:
                 break;
         }
@@ -390,37 +396,60 @@ public class InvSearchF implements iSearch{
         
         if (null != _search_type)switch (_search_type) {
             case searchStocks:
+            case searchStocksWithOtherInfo:
                 _filter_list.add("a.sBrandCde"); _filter_description.add("Brand Code");
                 _filter_list.add("a.sCategrCd"); _filter_description.add("Category Code");
                 _filter_list.add("a.sColorCde"); _filter_description.add("Color Code");
                 _filter_list.add("a.sInvTypCd"); _filter_description.add("Inv. Type Code");
                 _filter_list.add("a.sModelCde"); _filter_description.add("Model Code");
                 
-                _fields.add("sBarCodex"); _fields_descript.add("Part No.");
+                _fields.add("sBarCodex"); _fields_descript.add("Bar Code");
                 _fields.add("sDescript"); _fields_descript.add("Description");
                 _fields.add("nQtyOnHnd"); _fields_descript.add("On Hand");
                 _fields.add("sBrandCde"); _fields_descript.add("Brand");
                 _fields.add("sModelCde"); _fields_descript.add("Model");
                 _fields.add("sColorCde"); _fields_descript.add("Color");
-                break;
-            case searchStocksWithOtherInfo:
                 break;
             case searchBranchStocks:
+            case searchBranchStocksWithOtherInfo:
                 _filter_list.add("a.sBrandCde"); _filter_description.add("Brand Code");
                 _filter_list.add("a.sCategrCd"); _filter_description.add("Category Code");
                 _filter_list.add("a.sColorCde"); _filter_description.add("Color Code");
                 _filter_list.add("a.sInvTypCd"); _filter_description.add("Inv. Type Code");
                 _filter_list.add("a.sModelCde"); _filter_description.add("Model Code");
                 
-                _fields.add("sBarCodex"); _fields_descript.add("Part No.");
+                _fields.add("sBarCodex"); _fields_descript.add("Bar Code");
                 _fields.add("sDescript"); _fields_descript.add("Description");
                 _fields.add("nQtyOnHnd"); _fields_descript.add("On Hand");
                 _fields.add("sBrandCde"); _fields_descript.add("Brand");
                 _fields.add("sModelCde"); _fields_descript.add("Model");
                 _fields.add("sColorCde"); _fields_descript.add("Color");
                 break;
-            case searchBranchStocksWithOtherInfo:
+            case searchStocks4MCModel:
+                _fields.add("sBarCodex"); _fields_descript.add("Bar Code");
+                _fields.add("sDescript"); _fields_descript.add("Description");
+                _fields.add("xBrandNme"); _fields_descript.add("Brand");
+                _fields.add("xModelNme"); _fields_descript.add("Model");
+
+                _filter_list.add("b.sDescript"); _filter_description.add("Brand");
                 break;
+            case searchMCSerial:
+                _fields.add("sStockIDx"); _fields_descript.add("ID");
+                _fields.add("sSerial01"); _fields_descript.add("Engine No.");
+                _fields.add("sSerial02"); _fields_descript.add("Frame No.");
+                _fields.add("xBrandNme"); _fields_descript.add("Brand");
+                _fields.add("xModelNme"); _fields_descript.add("Model");
+
+                _filter_list.add("c.sDescript"); _filter_description.add("Brand");
+                _filter_list.add("d.sDescript"); _filter_description.add("Model");
+                break;
+            case searchSPInvRequest:
+                _fields.add("sTransNox"); _fields_descript.add("Trans. No.");
+                _fields.add("sRemarksx"); _fields_descript.add("Remarks");
+                _fields.add("dTransact"); _fields_descript.add("Date");
+                _fields.add("sReferNox"); _fields_descript.add("Refer. No.");
+
+                _filter_list.add("sReferNox"); _filter_description.add("Refer. No.");
             default:
                 break;
         }
@@ -522,11 +551,61 @@ public class InvSearchF implements iSearch{
                     " AND b.sBranchCd = " + SQLUtil.toSQL((String) _app.getBranchConfig("sBranchCd"));
     }
     
+    private String getSQ_MC_Model(){
+        return "SELECT" +
+                    "  a.sStockIDx" +
+                    ", a.sBarCodex" +
+                    ", a.sDescript" +
+                    ", a.sBrandCde" +
+                    ", a.sModelCde" +
+                    ", a.sColorCde" +
+                    ", b.sDescript xBrandNme" +
+                    ", c.sDescript xModelNme" +
+                    ", '' xColorNme" +
+                " FROM Inventory a" +
+                    ", Brand b" +
+                    ", Model c" +
+                " WHERE a.sBrandCde = b.sBrandCde" +
+                    " AND a.sModelCde = c.sModelCde" +
+                    " AND a.sInvTypCd = 'MC'";
+    }
+    
+    private String getSQ_MC_Serial(){
+        return "SELECT" +
+                    "  a.sSerialID" +
+                    ", a.sSerial01" +
+                    ", a.sSerial02" +
+                    ", a.sStockIDx" +
+                    ", b.sDescript xBrandNme" +
+                    ", c.sDescript xModelNme" +
+                " FROM Inv_Serial a" +
+                    ", Inventory b" +
+                    ", Brand c" +
+                    ", Model d" +
+                " WHERE a.sStockIDx = b.sStockIDx" +
+                    " AND b.sBrandCde = c.sBrandCde" +
+                    " AND b.sModelCde = d.sModelCde" +
+                    " AND b.sInvTypCd = 'MC'";
+    }
+    
+    private String getSQ_SPInv_Request(){
+        return "SELECT" +
+                    "  sTransNox" +
+                    ", sRemarksx" +
+                    ", dTransact" +
+                    ", sReferNox" +
+                " FROM Inv_Request_Master";
+    }
+    
     //let outside objects can call this variable without initializing the class.
     public static enum SearchType{
         searchStocks,
         searchBranchStocks,
         searchStocksWithOtherInfo,
-        searchBranchStocksWithOtherInfo
+        searchBranchStocksWithOtherInfo,
+        searchStocks4MCModel,
+        searchMCSerial,
+        searchSPInvRequest,
+        searchSPInvRequestCancel
     }
 }
