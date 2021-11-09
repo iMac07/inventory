@@ -317,4 +317,14 @@ public class InvMaster implements XRecord{
         p_oMaster.insertRow();
         p_oMaster.moveToCurrentRow();
     }
+
+    @Override
+    public Object getMaster(int fnIndex) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public void setMaster(int fnIndex, Object foValue) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
 }
