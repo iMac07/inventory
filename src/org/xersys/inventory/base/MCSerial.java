@@ -40,8 +40,6 @@ public class MCSerial implements XRecord{
     
     private CachedRowSet p_oMaster;
     
-    
-    
     public MCSerial(XNautilus foNautilus, String fsBranchCd, boolean fbWithParent){
         p_oNautilus = foNautilus;
         p_sBranchCd = fsBranchCd;
@@ -442,5 +440,15 @@ public class MCSerial implements XRecord{
             setMessage(e.getMessage());
             return false;
         }
+    }
+
+    @Override
+    public Object getMaster(int fnIndex) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public void setMaster(int fnIndex, Object foValue) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 }
