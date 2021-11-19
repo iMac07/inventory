@@ -340,6 +340,8 @@ public class InvSearchF implements iSearch{
                 lsSQL = getSQ_MC_Serial(); break;
             case searchSPInvRequest:
                 lsSQL = MiscUtil.addCondition(getSQ_SPInv_Request(), "sInvTypCd = 'SP'"); break;
+            case searchSPInventoryWPO:
+                lsSQL = MiscUtil.addCondition(getSQ_SP_Inventory_With_PO(), "a.sInvTypCd = 'SP'"); break;
             default:
                 break;
         }
@@ -450,6 +452,17 @@ public class InvSearchF implements iSearch{
                 _fields.add("sReferNox"); _fields_descript.add("Refer. No.");
 
                 _filter_list.add("sReferNox"); _filter_description.add("Refer. No.");
+            case searchSPInventoryWPO:
+                _filter_list.add("a.sBrandCde"); _filter_description.add("Brand Code");
+                _filter_list.add("a.sModelCde"); _filter_description.add("Model Code");
+                _filter_list.add("a.sColorCde"); _filter_description.add("Color Code");                
+                
+                _fields.add("sBarCodex"); _fields_descript.add("Bar Code");
+                _fields.add("sDescript"); _fields_descript.add("Description");
+                _fields.add("nQtyOnHnd"); _fields_descript.add("On Hand");
+                _fields.add("sBrandCde"); _fields_descript.add("Brand");
+                _fields.add("sModelCde"); _fields_descript.add("Model");
+                _fields.add("sColorCde"); _fields_descript.add("Color");
             default:
                 break;
         }
@@ -597,6 +610,25 @@ public class InvSearchF implements iSearch{
                 " FROM Inv_Request_Master";
     }
     
+    private String getSQ_SP_Inventory_With_PO(){
+        return "SELECT" +
+                    "  a.sStockIDx" +
+                    ", a.sBarCodex" +
+                    ", a.sDescript" +
+                    ", IFNULL(a.sBrandCde, '') sBrandCde" +
+                    ", IFNULL(a.sModelCde, '') sModelCde" +
+                    ", IFNULL(a.sColorCde, '') sColorCde" +
+                    ", IFNULL(a.sInvTypCd, '') sInvTypCd" +
+                    ", a.nUnitPrce" +
+                    ", a.nSelPrce1" +
+                    ", IFNULL(b.nQtyOnHnd, 0) nQtyOnHnd" +
+                " FROM Inventory a" +
+                    ", Inv_Master b" +
+                " WHERE a.sStockIDx = b.sStockIDx" +
+                    " AND a.sInvTypCd = 'SP'" +
+                    " AND b.sBranchCd = " + SQLUtil.toSQL((String) _app.getBranchConfig("sBranchCd"));
+    }
+    
     //let outside objects can call this variable without initializing the class.
     public static enum SearchType{
         searchStocks,
@@ -606,6 +638,7 @@ public class InvSearchF implements iSearch{
         searchStocks4MCModel,
         searchMCSerial,
         searchSPInvRequest,
-        searchSPInvRequestCancel
+        searchSPInvRequestCancel,
+        searchSPInventoryWPO
     }
 }
