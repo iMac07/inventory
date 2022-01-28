@@ -174,6 +174,28 @@ public class InvTrans {
         return saveTransaction();
     }
     
+    public boolean AcceptDelivery(String fsSourceNo,
+                                    Date fdTransDate,
+                                    int fnUpdateMode){        
+        p_sSourceCd = InvConstants.ACCEPT_DELIVERY;
+        p_sSourceNo = fsSourceNo;
+        p_dTransact = fdTransDate;
+        p_nEditMode = fnUpdateMode;
+        
+        return saveTransaction();
+    }
+    
+    public boolean Delivery(String fsSourceNo,
+                                    Date fdTransDate,
+                                    int fnUpdateMode){        
+        p_sSourceCd = InvConstants.DELIVERY;
+        p_sSourceNo = fsSourceNo;
+        p_dTransact = fdTransDate;
+        p_nEditMode = fnUpdateMode;
+        
+        return saveTransaction();
+    }
+    
     private boolean saveTransaction(){
         setMessage("");
         
@@ -188,14 +210,54 @@ public class InvTrans {
             return false;
         } 
         
-        if (p_nEditMode == EditMode.DELETE) return deleteTransaction();
+        if (p_nEditMode == EditMode.DELETE) return DeleteTransaction();
            
         if (!processInventory()) return false;
         
         return saveDetail();
     }
     
-    private boolean deleteTransaction(){
+    private boolean DeleteTransaction(){
+        setMessage("");
+        
+        try {
+            p_oProcsd.beforeFirst();
+            
+            while (p_oProcsd.next()){
+                if (!delTransaction(p_oProcsd.getString("sStockIDx"), 
+                                    p_oProcsd.getInt("nQtyInxxx"), 
+                                    p_oProcsd.getInt("nQtyOutxx"), 
+                                    p_oProcsd.getInt("nQtyIssue"), 
+                                    p_oProcsd.getInt("nQtyOrder"))) return false;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            setMessage(e.getMessage());
+            return false;
+        }
+        
+        return true;
+    }
+    
+    private boolean delTransaction(String fsStockIDx,
+                                    int fnQtyInxxx,
+                                    int fnQtyOutxx,
+                                    int fnQtyIssue,
+                                    int fnQytOrder){
+        
+        String lsSQL = "UPDATE Inv_Master SET" +
+                            "  nQtyOnHnd = nQtyOnHnd + " + (fnQtyOutxx - fnQtyInxxx) +
+                            ", nBackOrdr = nBackOrdr - " + (fnQytOrder) +
+                            ", nResvOrdr = nResvOrdr + " + (fnQtyIssue) +
+                            ", dModified = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
+                        " WHERE sStockIDx = " + SQLUtil.toSQL(fsStockIDx) +
+                            " AND sBranchCd = " + SQLUtil.toSQL(p_sBranchCd); 
+        
+        if (p_oNautilus.executeUpdate(lsSQL, "Inv_Master", p_sBranchCd, "") <= 0){
+            setMessage(p_oNautilus.getMessage());
+            return false;
+        }
+        
         return true;
     }
     
