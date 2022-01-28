@@ -1,12 +1,16 @@
 package org.xersys.inventory.base;
 
 import com.mysql.jdbc.Connection;
+import com.sun.rowset.CachedRowSetImpl;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Iterator;
+import javax.sql.RowSetMetaData;
 import javax.sql.rowset.CachedRowSet;
 import javax.sql.rowset.RowSetFactory;
+import javax.sql.rowset.RowSetMetaDataImpl;
 import javax.sql.rowset.RowSetProvider;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
@@ -37,6 +41,7 @@ public class InvRequest implements XMasDetTrans{
     
     private LMasDetTrans p_oListener;
     private boolean p_bSaveToDisk;
+    private boolean p_bWithUI;
     
     private String p_sOrderNox;
     
@@ -54,18 +59,20 @@ public class InvRequest implements XMasDetTrans{
     private ArrayList<Temp_Transactions> p_oTemp;
 
     public InvRequest(XNautilus foNautilus, String fsBranchCd, boolean fbWithParent){
+        p_bWithUI = true;
         p_oNautilus = foNautilus;
         p_sBranchCd = fsBranchCd;
         p_bWithParent = fbWithParent;
         p_nEditMode = EditMode.UNKNOWN;
         
-        p_oSearchItem = new InvSearchF(p_oNautilus, InvSearchF.SearchType.searchBranchStocks);
+        p_oSearchItem = new InvSearchF(p_oNautilus, InvSearchF.SearchType.searchStocks);
         p_oSearchTrans = new InvSearchF(p_oNautilus, InvSearchF.SearchType.searchSPInvRequest);
         
         loadTempTransactions();
     }
     
     public InvRequest(XNautilus foNautilus, String fsBranchCd, boolean fbWithParent, int fnTranStat){
+        p_bWithUI = true;
         p_oNautilus = foNautilus;
         p_sBranchCd = fsBranchCd;
         p_bWithParent = fbWithParent;
@@ -89,7 +96,7 @@ public class InvRequest implements XMasDetTrans{
     }
 
     @Override
-    public void setMaster(String fsFieldNm, Object foValue) {
+    public void setMaster(int fnIndex, Object foValue) {
         if (p_nEditMode != EditMode.ADDNEW &&
             p_nEditMode != EditMode.UPDATE){
             System.err.println("Transaction is not on update mode.");
@@ -99,42 +106,15 @@ public class InvRequest implements XMasDetTrans{
         try {
             p_oMaster.first();
             
-            switch (fsFieldNm){
-                case "sTransNox":
-                case "sBranchCd":
-                case "sInvTypCd":
-                case "sApproved":
-                case "dApproved":
-                case "sAprvCode":
-                case "nEntryNox":
-                case "sSourceCd":
-                case "sSourceNo":
-                case "cConfirmd":
-                case "cTranStat":
-                    break;
-                case "dTransact":
-                case "dCreatedx":
-                    if (StringUtil.isDate(String.valueOf(foValue), SQLUtil.FORMAT_TIMESTAMP))
-                        p_oMaster.setObject(fsFieldNm, foValue);
-                    else 
-                        p_oMaster.setObject(fsFieldNm, p_oNautilus.getServerDate());
-                    
+            switch (fnIndex){
+                case 6: //sRemarksx
+                case 7: //sIssNotes
+                    p_oMaster.updateString(fnIndex, (String) foValue);
                     p_oMaster.updateRow();
                     break;
-                case "nCurrInvx":
-                case "nEstInvxx":
-                    if (StringUtil.isNumeric(String.valueOf(foValue))){
-                        p_oMaster.setObject(fsFieldNm, foValue);
-                        p_oMaster.updateRow();
-                    }
-                    
-                    break;
-                default:
-                    p_oMaster.updateObject(fsFieldNm, foValue);
-                    p_oMaster.updateRow();
             }
             
-            if (p_oListener != null) p_oListener.MasterRetreive(fsFieldNm, p_oMaster.getObject(fsFieldNm));
+            if (p_oListener != null) p_oListener.MasterRetreive(fnIndex, getMaster(fnIndex));
              
             saveToDisk(RecordStatus.ACTIVE, "");
         } catch (SQLException e) {
@@ -142,98 +122,20 @@ public class InvRequest implements XMasDetTrans{
             setMessage(e.getMessage());
         }
     }
+    
+    @Override
+    public void setMaster(String fsFieldNm, Object foValue) {
+        try {
+            setMaster(MiscUtil.getColumnIndex(p_oMaster, fsFieldNm), foValue);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
 
     @Override
     public Object getMaster(String fsFieldNm) {
         try {
-            p_oMaster.first();
-            return p_oMaster.getObject(fsFieldNm);
-        } catch (SQLException e) {
-            e.printStackTrace();
-            setMessage(e.getMessage());
-        }
-        
-        return null;
-    }
-
-    @Override
-    public void setMaster(int fnIndex, Object foValue) {
-        try {
-            setMaster(p_oMaster.getMetaData().getColumnLabel(fnIndex), foValue);
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
-    @Override
-    public Object getMaster(int fnIndex) {
-        try {
-            return getMaster(p_oMaster.getMetaData().getColumnLabel(fnIndex));
-        } catch (SQLException e) {
-            e.printStackTrace();
-            setMessage(e.getMessage());
-        }
-        
-        return null;
-    }
-
-    @Override
-    public void setDetail(int fnRow, String fsFieldNm, Object foValue) {
-        if (p_nEditMode != EditMode.ADDNEW &&
-            p_nEditMode != EditMode.UPDATE){
-            System.err.println("Transaction is not on update mode.");
-            return;
-        }
-        
-        try {
-            p_oDetail.absolute(fnRow + 1);
-            
-            switch (fsFieldNm){
-                case "sTransNox":
-                case "nEntryNox":
-                case "cClassify":
-                case "nRecOrder":
-                case "nQtyOnHnd":
-                case "nResvOrdr":
-                case "nBackOrdr":
-                case "nOnTranst":
-                case "nAvgMonSl":
-                case "nMaxLevel":
-                    break;
-                case "sStockIDx":                     
-                    getDetail(fnRow, "a.sStockIDx", foValue);                    
-                    break;
-                case "nQuantity":
-                case "nApproved":
-                case "nCancelld":
-                case "nIssueQty":
-                case "nOrderQty":
-                case "nAllocQty":
-                case "nReceived":
-                    if (StringUtil.isNumeric(String.valueOf(foValue))){
-                        p_oDetail.setObject(fsFieldNm, foValue);
-                        p_oDetail.updateRow();
-                    }
-                    break;
-                default:        
-                    p_oDetail.updateObject(fsFieldNm, foValue);
-                    p_oDetail.updateRow();
-            }
-            
-            if (p_oListener != null) p_oListener.DetailRetreive(fnRow, fsFieldNm, "");
-            
-            saveToDisk(RecordStatus.ACTIVE, "");            
-        } catch (SQLException | ParseException e) {
-            e.printStackTrace();
-            setMessage(e.getMessage());
-        }
-    }
-
-    @Override
-    public Object getDetail(int fnRow, String fsFieldNm) {
-        try {
-            p_oDetail.absolute(fnRow + 1);            
-            return p_oDetail.getObject(fsFieldNm);
+            return getMaster(MiscUtil.getColumnIndex(p_oMaster, fsFieldNm));
         } catch (SQLException e) {
             e.printStackTrace();
             setMessage(e.getMessage());
@@ -242,24 +144,82 @@ public class InvRequest implements XMasDetTrans{
     }
 
     @Override
-    public void setDetail(int fnRow, int fnIndex, Object foValue) {
+    public Object getMaster(int fnIndex) {
+        if (fnIndex == 0) return null;
+        
         try {
-            setDetail(fnRow, p_oDetail.getMetaData().getColumnLabel(fnIndex), foValue);
+            p_oMaster.first();
+            return p_oMaster.getObject(fnIndex);
+        } catch (SQLException e) {
+            e.printStackTrace();
+            setMessage(e.getMessage());
+            return null;
+        }
+    }
+    
+    @Override
+    public void setDetail(int fnRow, int fnIndex, Object foValue) {
+        if (p_nEditMode != EditMode.ADDNEW &&
+            p_nEditMode != EditMode.UPDATE){
+            System.err.println("Transaction is not on update mode.");
+            return;
+        }
+        
+        try {            
+            switch (fnIndex){
+                case 3: //sStockIDx
+                    getDetail(fnRow, fnIndex, foValue);                    
+                    break;
+                case 4: //nQuantity
+                case 13: //nApproved
+                    if (StringUtil.isNumeric(String.valueOf(foValue))){
+                        p_oDetail.absolute(fnRow);
+                        p_oDetail.updateObject(fnIndex, foValue);
+                        p_oDetail.updateRow();
+                    }
+                    if (p_oListener != null) p_oListener.DetailRetreive(fnRow, fnIndex, getDetail(fnRow, fnIndex));
+                    break;
+            }
+
+            saveToDisk(RecordStatus.ACTIVE, "");            
+        } catch (SQLException | ParseException e) {
+            e.printStackTrace();
+            setMessage(e.getMessage());
+        }
+    }
+    
+    @Override
+    public void setDetail(int fnRow, String fsFieldNm, Object foValue) {
+        try {
+            setDetail(fnRow, MiscUtil.getColumnIndex(p_oDetail, fsFieldNm), foValue);
         } catch (SQLException e) {
             e.printStackTrace();
         }
     }
 
     @Override
-    public Object getDetail(int fnRow, int fnIndex) {
+    public Object getDetail(int fnRow, String fsFieldNm) {
         try {
-            return getDetail(fnRow, p_oDetail.getMetaData().getColumnLabel(fnIndex));
+            return getDetail(fnRow, MiscUtil.getColumnIndex(p_oDetail, fsFieldNm));
         } catch (SQLException e) {
             e.printStackTrace();
             setMessage(e.getMessage());
+            return null;
         }
+    }
+
+    @Override
+    public Object getDetail(int fnRow, int fnIndex) {
+        if (fnIndex == 0) return null;
         
-        return null;
+        try {
+            p_oDetail.absolute(fnRow);
+            return p_oDetail.getObject(fnIndex);
+        } catch (SQLException e) {
+            e.printStackTrace();
+            setMessage(e.getMessage());
+            return null;
+        }
     }
 
     @Override
@@ -284,6 +244,10 @@ public class InvRequest implements XMasDetTrans{
         }
     }
 
+    public void setWithUI(boolean fbValue){
+        p_bWithUI = fbValue;
+    }
+    
     public void setTranStat(int fnValue){
         p_nTranStat = fnValue;
     }
@@ -292,7 +256,7 @@ public class InvRequest implements XMasDetTrans{
     public boolean addDetail() {
         try {
             if (getItemCount() > 0) {
-                if ("".equals((String) getDetail(getItemCount() - 1, "sStockIDx"))){
+                if ("".equals((String) getDetail(getItemCount(), "sStockIDx"))){
                     saveToDisk(RecordStatus.ACTIVE, "");
                     return true;
                 }
@@ -317,7 +281,7 @@ public class InvRequest implements XMasDetTrans{
     @Override
     public boolean delDetail(int fnRow) {
         try {
-            p_oDetail.absolute(fnRow + 1);
+            p_oDetail.absolute(fnRow);
             p_oDetail.deleteRow();
             
             return addDetail();
@@ -334,27 +298,10 @@ public class InvRequest implements XMasDetTrans{
         p_sOrderNox = "";
         
         try {
-            String lsSQL;
-            ResultSet loRS;
-            
-            RowSetFactory factory = RowSetProvider.newFactory();
-            
-            //create empty master record
-            lsSQL = MiscUtil.addCondition(getSQ_Master(), "0=1");
-            loRS = p_oNautilus.executeQuery(lsSQL);
-            p_oMaster = factory.createCachedRowSet();
-            p_oMaster.populate(loRS);
-            MiscUtil.close(loRS);
-            initMaster();
-            
-            //create empty detail record
-            lsSQL = MiscUtil.addCondition(getSQ_Detail(), "0=1");
-            loRS = p_oNautilus.executeQuery(lsSQL);
-            p_oDetail = factory.createCachedRowSet();
-            p_oDetail.populate(loRS);
-            MiscUtil.close(loRS);
-            addDetail();
+            createMaster();
+            createDetail();
         } catch (SQLException ex) {
+            ex.printStackTrace();
             setMessage(ex.getMessage());
             return false;
         }
@@ -438,7 +385,7 @@ public class InvRequest implements XMasDetTrans{
                         p_oDetail.updateObject("sTransNox", p_oMaster.getObject("sTransNox"));
                         p_oDetail.updateObject("nEntryNox", lnCtr);
                     
-                        lsSQL = MiscUtil.rowset2SQL(p_oDetail, DETAIL_TABLE, "sBarCodex;sDescript;nQtyOnHnd;sBrandCde;sModelCde;sColorCde");
+                        lsSQL = MiscUtil.rowset2SQL(p_oDetail, DETAIL_TABLE, "xBarCodex;xDescript;xQtyOnHnd;xBrandCde;xModelCde;xColorCde");
 
                         if(p_oNautilus.executeUpdate(lsSQL, DETAIL_TABLE, p_sBranchCd, "") <= 0){
                             if(!p_oNautilus.getMessage().isEmpty())
@@ -562,26 +509,38 @@ public class InvRequest implements XMasDetTrans{
                 setMessage("No transaction to update.");
                 return false;
             }
-
-            if ((TransactionStatus.STATE_CANCELLED).equals((String) p_oMaster.getObject("cTranStat"))){
-                setMessage("Unable to approve cancelled transactons");
-                return false;
-            }        
-
-            if ((TransactionStatus.STATE_POSTED).equals((String) p_oMaster.getObject("cTranStat"))){
-                setMessage("Unable to approve posted transactons");
-                return false;
-            }
-
-            if ((TransactionStatus.STATE_CLOSED).equals((String) p_oMaster.getObject("cTranStat"))){
-                setMessage("Transaction was already approved.");
+            
+            //re-open the transaction assuming the possibility of multiple PC loading of txs
+            String lsSQL = MiscUtil.addCondition(getSQ_Master(), 
+                                "a.sTransNox = " + SQLUtil.toSQL(getMaster("sTransNox")));
+            ResultSet loRS = p_oNautilus.executeQuery(lsSQL);
+            
+            if (!loRS.next()){
+                setMessage("Transaction went missing.");
                 return false;
             }
             
-            String lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
-                                "  cTranStat = " + TransactionStatus.STATE_CLOSED +
-                                ", dModified= " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
-                            " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));
+            if ((TransactionStatus.STATE_CANCELLED).equals(loRS.getString("cTranStat"))){
+                setMessage("Unable to approve cancelled transactons.");
+                return false;
+            }        
+
+            if ((TransactionStatus.STATE_POSTED).equals(loRS.getString("cTranStat"))){
+                setMessage("Unable to approve posted transactons.");
+                return false;
+            }
+
+            if ((TransactionStatus.STATE_CLOSED).equals(loRS.getString("cTranStat"))){
+                p_nEditMode  = EditMode.UNKNOWN;
+                return true;
+            }
+            
+            //if (!saveInvTrans()) return false;
+            
+            lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
+                        "  cTranStat = " + TransactionStatus.STATE_CLOSED +
+                        ", dModified= " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
+                    " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));
 
             if (p_oNautilus.executeUpdate(lsSQL, MASTER_TABLE, p_sBranchCd, "") <= 0){
                 if (!p_bWithParent) p_oNautilus.rollbackTrans();
@@ -596,7 +555,7 @@ public class InvRequest implements XMasDetTrans{
             setMessage(ex.getMessage());
         }
         
-        return false;   
+        return false; 
     }
 
     @Override
@@ -608,16 +567,29 @@ public class InvRequest implements XMasDetTrans{
                 setMessage("No transaction to update.");
                 return false;
             }
+            
+            //re-open the transaction assuming the possibility of multiple PC loading of txs
+            String lsSQL = MiscUtil.addCondition(getSQ_Master(), 
+                                "a.sTransNox = " + SQLUtil.toSQL(getMaster("sTransNox")));
+            ResultSet loRS = p_oNautilus.executeQuery(lsSQL);
+            
+            if (!loRS.next()){
+                setMessage("Transaction went missing.");
+                return false;
+            }
 
-            if (("1").equals((String) p_oMaster.getObject("cConfirmd"))){
-                setMessage("Order was already confirmed by warehouse.");
+            if ((TransactionStatus.STATE_POSTED).equals(loRS.getString("cTranStat"))){
+                setMessage("Unable to cancel posted transactons.");
                 return false;
             }
             
-            if ((TransactionStatus.STATE_CANCELLED).equals((String) p_oMaster.getObject("cTranStat"))){
-                setMessage("Order was already cancelled.");
+            if ((TransactionStatus.STATE_CANCELLED).equals(loRS.getString("cTranStat"))){
+                p_nEditMode  = EditMode.UNKNOWN;
                 return false;
             }
+            
+//            if ((TransactionStatus.STATE_CLOSED).equals(loRS.getString("cTranStat")))
+//                if (!delInvTrans()) return false;
 
             InvRequestCancel loCancel = new InvRequestCancel(p_oNautilus, p_sBranchCd, true);
             
@@ -674,19 +646,30 @@ public class InvRequest implements XMasDetTrans{
                 setMessage("No transaction to update.");
                 return false;
             }
-
-            if (!(TransactionStatus.STATE_OPEN).equals((String) p_oMaster.getObject("cTranStat"))){
-                setMessage("Unable to delete already processed transactions.");
+            
+            //re-open the transaction assuming the possibility of multiple PC loading of txs
+            String lsSQL = MiscUtil.addCondition(getSQ_Master(), 
+                                "a.sTransNox = " + SQLUtil.toSQL(getMaster("sTransNox")));
+            ResultSet loRS = p_oNautilus.executeQuery(lsSQL);
+            
+            if (!loRS.next()){
+                setMessage("Transaction went missing.");
+                return false;
+            }
+            
+            if ((TransactionStatus.STATE_POSTED).equals(loRS.getString("cTranStat"))){
+                setMessage("Unable to delete already posted transactions.");
                 return false;
             }
 
-            //todo:
-            //  validate user level here
-
             if (!p_bWithParent) p_oNautilus.beginTrans();
-
-            String lsSQL = "DELETE FROM " + MASTER_TABLE +
-                            " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));
+            
+//            if ((TransactionStatus.STATE_CLOSED).equals(loRS.getString("cTranStat"))){
+//                if (!delInvTrans()) return false;
+//            }
+           
+            lsSQL = "DELETE FROM " + MASTER_TABLE +
+                    " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));
 
             if (p_oNautilus.executeUpdate(lsSQL, MASTER_TABLE, p_sBranchCd, "") <= 0){
                 if (!p_bWithParent) p_oNautilus.rollbackTrans();
@@ -727,7 +710,7 @@ public class InvRequest implements XMasDetTrans{
         return p_oTemp;
     }
     
-    public JSONObject searchBranchInventory(String fsKey, Object foValue, boolean fbExact){
+    public JSONObject searchStocks(String fsKey, Object foValue, boolean fbExact){
         p_oSearchItem.setKey(fsKey);
         p_oSearchItem.setValue(foValue);
         p_oSearchItem.setExact(fbExact);
@@ -735,7 +718,7 @@ public class InvRequest implements XMasDetTrans{
         return p_oSearchItem.Search();
     }
     
-    public InvSearchF getSearchBranchInventory(){
+    public InvSearchF getSearchStocks(){
         return p_oSearchItem;
     }
     
@@ -796,12 +779,12 @@ public class InvRequest implements XMasDetTrans{
                     ", a.nAllocQty" +
                     ", a.nReceived" +
                     ", a.sNotesxxx" +
-                    ", b.sBarCodex" +
-                    ", b.sDescript" +
-                    ", IFNULL(c.nQtyOnHnd, 0) nQtyOnHnd" +
-                    ", b.sBrandCde" + 
-                    ", b.sModelCde" +
-                    ", b.sColorCde" +
+                    ", b.sBarCodex xBarCodex" +
+                    ", b.sDescript xDescript" +
+                    ", IFNULL(c.nQtyOnHnd, 0) xQtyOnHnd" +
+                    ", b.sBrandCde xBrandCde" + 
+                    ", b.sModelCde xModelCde" +
+                    ", b.sColorCde xColorCde" +
                 " FROM " + DETAIL_TABLE + " a" +
                     " LEFT JOIN Inventory b" +
                         " LEFT JOIN Inv_Master c" +
@@ -891,25 +874,9 @@ public class InvRequest implements XMasDetTrans{
         JSONArray laDetail;
         
         try {
-            String lsSQL;
-            ResultSet loRS;
-            
-            RowSetFactory factory = RowSetProvider.newFactory();
-            
-            //create empty master record
-            lsSQL = MiscUtil.addCondition(getSQ_Master(), "0=1");
-            loRS = p_oNautilus.executeQuery(lsSQL);
-            p_oMaster = factory.createCachedRowSet();
-            p_oMaster.populate(loRS);
-            MiscUtil.close(loRS);
-            
-            //create empty detail record
-            lsSQL = MiscUtil.addCondition(getSQ_Detail(), "0=1");
-            loRS = p_oNautilus.executeQuery(lsSQL);
-            p_oDetail = factory.createCachedRowSet();
-            p_oDetail.populate(loRS);
-            MiscUtil.close(loRS);
-            
+            createMaster();
+            createDetail();
+
             loJSON = (JSONObject) loParser.parse(fsPayloadx);
             loMaster = (JSONObject) loJSON.get("master");
             laDetail = (JSONArray) loJSON.get("detail");
@@ -923,7 +890,6 @@ public class InvRequest implements XMasDetTrans{
             Iterator iterator;
 
             lnRow = 1;
-            initMaster();
             for(iterator = loMaster.keySet().iterator(); iterator.hasNext();) {
                 lsIndex = (String) iterator.next(); //string value of int
                 lnKey = Integer.valueOf(lsIndex); //string to in
@@ -932,7 +898,8 @@ public class InvRequest implements XMasDetTrans{
                 if (loMaster.get(lsIndex) != null){
                     switch(lsKey){
                         case "dTransact":
-                            p_oMaster.updateObject(lnKey, SQLUtil.toDate((String) loMaster.get(lsIndex), SQLUtil.FORMAT_SHORT_DATE));
+                        case "dCreatedx":
+                            p_oMaster.updateObject(lnKey, SQLUtil.toDate((String) loMaster.get(lsIndex), SQLUtil.FORMAT_TIMESTAMP));
                             break;
                         default:
                             p_oMaster.updateObject(lnKey, loMaster.get(lsIndex));
@@ -946,7 +913,6 @@ public class InvRequest implements XMasDetTrans{
             for(lnCtr = 0; lnCtr <= laDetail.size()-1; lnCtr++){
                 JSONObject loDetail = (JSONObject) laDetail.get(lnCtr);
 
-                addDetail();
                 for(iterator = loDetail.keySet().iterator(); iterator.hasNext();) {
                     lsIndex = (String) iterator.next(); //string value of int
                     lnKey = Integer.valueOf(lsIndex); //string to int
@@ -955,6 +921,7 @@ public class InvRequest implements XMasDetTrans{
                     p_oDetail.updateRow();
                 }
                 lnRow++;
+                addDetail();
             }
         } catch (SQLException | ParseException ex) {
             setMessage(ex.getMessage());
@@ -1032,6 +999,292 @@ public class InvRequest implements XMasDetTrans{
         p_oMaster.moveToCurrentRow();
     }
     
+    private void createMaster() throws SQLException{
+        RowSetMetaData meta = new RowSetMetaDataImpl();
+
+        meta.setColumnCount(20);
+
+        meta.setColumnName(1, "sTransNox");
+        meta.setColumnLabel(1, "sTransNox");
+        meta.setColumnType(1, Types.VARCHAR);
+        meta.setColumnDisplaySize(1, 12);
+        
+        meta.setColumnName(2, "sBranchCd");
+        meta.setColumnLabel(2, "sBranchCd");
+        meta.setColumnType(2, Types.VARCHAR);
+        meta.setColumnDisplaySize(2, 4);
+        
+        meta.setColumnName(3, "sInvTypCd");
+        meta.setColumnLabel(3, "sInvTypCd");
+        meta.setColumnType(3, Types.VARCHAR);
+        meta.setColumnDisplaySize(3, 4);
+
+        meta.setColumnName(4, "dTransact");
+        meta.setColumnLabel(4, "dTransact");
+        meta.setColumnType(4, Types.TIMESTAMP);
+
+        meta.setColumnName(5, "sReferNox");
+        meta.setColumnLabel(5, "sReferNox");
+        meta.setColumnType(5, Types.VARCHAR);
+        meta.setColumnDisplaySize(5, 12);
+        
+        meta.setColumnName(6, "sRemarksx");
+        meta.setColumnLabel(6, "sRemarksx");
+        meta.setColumnType(6, Types.VARCHAR);
+        meta.setColumnDisplaySize(6, 128);
+        
+        meta.setColumnName(7, "sIssNotes");
+        meta.setColumnLabel(7, "sIssNotes");
+        meta.setColumnType(7, Types.VARCHAR);
+        meta.setColumnDisplaySize(7, 128);
+        
+        meta.setColumnName(8, "nCurrInvx");
+        meta.setColumnLabel(8, "nCurrInvx");
+        meta.setColumnType(8, Types.INTEGER);
+        
+        meta.setColumnName(9, "nEstInvxx");
+        meta.setColumnLabel(9, "nEstInvxx");
+        meta.setColumnType(9, Types.INTEGER);
+        
+        meta.setColumnName(10, "sApproved");
+        meta.setColumnLabel(10, "sApproved");
+        meta.setColumnType(10, Types.VARCHAR);
+        meta.setColumnDisplaySize(10, 12);
+        
+        meta.setColumnName(11, "dApproved");
+        meta.setColumnLabel(11, "dApproved");
+        meta.setColumnType(11, Types.TIMESTAMP);
+        
+        meta.setColumnName(12, "sAprvCode");
+        meta.setColumnLabel(12, "sAprvCode");
+        meta.setColumnType(12, Types.VARCHAR);
+        meta.setColumnDisplaySize(12, 12);
+        
+        meta.setColumnName(13, "nEntryNox");
+        meta.setColumnLabel(13, "nEntryNox");
+        meta.setColumnType(13, Types.INTEGER);
+        
+        meta.setColumnName(14, "sSourceCd");
+        meta.setColumnLabel(14, "sSourceCd");
+        meta.setColumnType(14, Types.VARCHAR);
+        meta.setColumnDisplaySize(14, 4);
+        
+        meta.setColumnName(15, "sSourceNo");
+        meta.setColumnLabel(15, "sSourceNo");
+        meta.setColumnType(15, Types.VARCHAR);
+        meta.setColumnDisplaySize(15, 12);
+        
+        meta.setColumnName(16, "cConfirmd");
+        meta.setColumnLabel(16, "cConfirmd");
+        meta.setColumnType(16, Types.CHAR);
+        meta.setColumnDisplaySize(16, 1);
+        
+        meta.setColumnName(17, "cTranStat");
+        meta.setColumnLabel(17, "cTranStat");
+        meta.setColumnType(17, Types.CHAR);
+        meta.setColumnDisplaySize(17, 1);
+        
+        meta.setColumnName(18, "dCreatedx");
+        meta.setColumnLabel(18, "dCreatedx");
+        meta.setColumnType(18, Types.TIMESTAMP);
+        
+        meta.setColumnName(19, "dModified");
+        meta.setColumnLabel(19, "dModified");
+        meta.setColumnType(19, Types.TIMESTAMP);
+        
+        meta.setColumnName(20, "xInvTypNm");
+        meta.setColumnLabel(20, "xInvTypNm");
+        meta.setColumnType(20, Types.VARCHAR);
+        
+        
+        p_oMaster = new CachedRowSetImpl();
+        p_oMaster.setMetaData(meta);
+        
+        p_oMaster.last();
+        p_oMaster.moveToInsertRow();
+        
+        MiscUtil.initRowSet(p_oMaster);       
+        
+        p_oMaster.updateObject("sTransNox", MiscUtil.getNextCode(MASTER_TABLE, "sTransNox", true, getConnection(), p_sBranchCd));
+        p_oMaster.updateObject("dTransact", p_oNautilus.getServerDate());
+        p_oMaster.updateObject("cConfirmd", "0");
+        p_oMaster.updateObject("cTranStat", TransactionStatus.STATE_OPEN);
+        
+        p_oMaster.insertRow();
+        p_oMaster.moveToCurrentRow();
+    }
+    
+    private void createDetail() throws SQLException{
+        RowSetMetaData meta = new RowSetMetaDataImpl();
+
+        meta.setColumnCount(25);
+
+        meta.setColumnName(1, "sTransNox");
+        meta.setColumnLabel(1, "sTransNox");
+        meta.setColumnType(1, Types.VARCHAR);
+        meta.setColumnDisplaySize(1, 12);
+        
+        meta.setColumnName(2, "nEntryNox");
+        meta.setColumnLabel(2, "nEntryNox");
+        meta.setColumnType(2, Types.INTEGER);
+
+        meta.setColumnName(3, "sStockIDx");
+        meta.setColumnLabel(3, "sStockIDx");
+        meta.setColumnType(3, Types.VARCHAR);
+        meta.setColumnDisplaySize(3, 12);
+        
+        meta.setColumnName(4, "nQuantity");
+        meta.setColumnLabel(4, "nQuantity");
+        meta.setColumnType(4, Types.INTEGER);
+        
+        meta.setColumnName(5, "cClassify");
+        meta.setColumnLabel(5, "cClassify");
+        meta.setColumnType(5, Types.CHAR);
+        meta.setColumnDisplaySize(5, 1);
+        
+        meta.setColumnName(6, "nRecOrder");
+        meta.setColumnLabel(6, "nRecOrder");
+        meta.setColumnType(6, Types.INTEGER);
+        
+        meta.setColumnName(7, "nQtyOnHnd");
+        meta.setColumnLabel(7, "nQtyOnHnd");
+        meta.setColumnType(7, Types.INTEGER);
+        
+        meta.setColumnName(8, "nResvOrdr");
+        meta.setColumnLabel(8, "nResvOrdr");
+        meta.setColumnType(8, Types.INTEGER);
+        
+        meta.setColumnName(9, "nBackOrdr");
+        meta.setColumnLabel(9, "nBackOrdr");
+        meta.setColumnType(9, Types.INTEGER);
+        
+        meta.setColumnName(10, "nOnTranst");
+        meta.setColumnLabel(10, "nOnTranst");
+        meta.setColumnType(10, Types.INTEGER);
+        
+        meta.setColumnName(11, "nAvgMonSl");
+        meta.setColumnLabel(11, "nAvgMonSl");
+        meta.setColumnType(11, Types.INTEGER);
+        
+        meta.setColumnName(12, "nMaxLevel");
+        meta.setColumnLabel(12, "nMaxLevel");
+        meta.setColumnType(12, Types.INTEGER);
+        
+        meta.setColumnName(13, "nApproved");
+        meta.setColumnLabel(13, "nApproved");
+        meta.setColumnType(13, Types.INTEGER);
+        
+        meta.setColumnName(14, "nCancelld");
+        meta.setColumnLabel(14, "nCancelld");
+        meta.setColumnType(14, Types.INTEGER);
+        
+        meta.setColumnName(15, "nIssueQty");
+        meta.setColumnLabel(15, "nIssueQty");
+        meta.setColumnType(15, Types.INTEGER);
+        
+        meta.setColumnName(16, "nOrderQty");
+        meta.setColumnLabel(16, "nOrderQty");
+        meta.setColumnType(16, Types.INTEGER);
+        
+        meta.setColumnName(17, "nAllocQty");
+        meta.setColumnLabel(17, "nAllocQty");
+        meta.setColumnType(17, Types.INTEGER);
+        
+        meta.setColumnName(18, "nReceived");
+        meta.setColumnLabel(18, "nReceived");
+        meta.setColumnType(18, Types.INTEGER);
+        
+        meta.setColumnName(19, "sNotesxxx");
+        meta.setColumnLabel(19, "sNotesxxx");
+        meta.setColumnType(19, Types.VARCHAR);
+        meta.setColumnDisplaySize(19, 256);
+        
+        meta.setColumnName(20, "xBarCodex");
+        meta.setColumnLabel(20, "xBarCodex");
+        meta.setColumnType(20, Types.VARCHAR);
+        
+        meta.setColumnName(21, "xDescript");
+        meta.setColumnLabel(21, "xDescript");
+        meta.setColumnType(21, Types.VARCHAR);
+        
+        meta.setColumnName(22, "xQtyOnHnd");
+        meta.setColumnLabel(22, "xQtyOnHnd");
+        meta.setColumnType(22, Types.INTEGER);
+        
+        meta.setColumnName(23, "xBrandCde");
+        meta.setColumnLabel(23, "xBrandCde");
+        meta.setColumnType(23, Types.VARCHAR);
+        
+        meta.setColumnName(24, "xModelCde");
+        meta.setColumnLabel(24, "xModelCde");
+        meta.setColumnType(24, Types.VARCHAR);
+        
+        meta.setColumnName(25, "xColorCde");
+        meta.setColumnLabel(25, "xColorCde");
+        meta.setColumnType(25, Types.VARCHAR);
+
+        p_oDetail = new CachedRowSetImpl();
+        p_oDetail.setMetaData(meta);
+        
+        p_oDetail.last();
+        p_oDetail.moveToInsertRow();
+        
+        MiscUtil.initRowSet(p_oDetail);       
+        
+        p_oDetail.insertRow();
+        p_oDetail.moveToCurrentRow();
+    }
+    
+    public void displayMasFields() throws SQLException{
+        if (p_nEditMode != EditMode.ADDNEW && p_nEditMode != EditMode.UPDATE) return;
+        
+        int lnRow = p_oMaster.getMetaData().getColumnCount();
+        
+        System.out.println("----------------------------------------");
+        System.out.println("MASTER TABLE INFO");
+        System.out.println("----------------------------------------");
+        System.out.println("Total number of columns: " + lnRow);
+        System.out.println("----------------------------------------");
+        
+        for (int lnCtr = 1; lnCtr <= lnRow; lnCtr++){
+            System.out.println("Column index: " + (lnCtr) + " --> Label: " + p_oMaster.getMetaData().getColumnLabel(lnCtr));
+            if (p_oMaster.getMetaData().getColumnType(lnCtr) == Types.CHAR ||
+                p_oMaster.getMetaData().getColumnType(lnCtr) == Types.VARCHAR){
+                
+                System.out.println("Column index: " + (lnCtr) + " --> Size: " + p_oMaster.getMetaData().getColumnDisplaySize(lnCtr));
+            }
+        }
+        
+        System.out.println("----------------------------------------");
+        System.out.println("END: MASTER TABLE INFO");
+        System.out.println("----------------------------------------");
+    }
+    
+    public void displayDetFields() throws SQLException{
+        if (p_nEditMode != EditMode.ADDNEW && p_nEditMode != EditMode.UPDATE) return;
+        
+        int lnRow = p_oDetail.getMetaData().getColumnCount();
+        
+        System.out.println("----------------------------------------");
+        System.out.println("DETAIL TABLE INFO");
+        System.out.println("----------------------------------------");
+        System.out.println("Total number of columns: " + lnRow);
+        System.out.println("----------------------------------------");
+        
+        for (int lnCtr = 1; lnCtr <= lnRow; lnCtr++){
+            System.out.println("Column index: " + (lnCtr) + " --> Label: " + p_oDetail.getMetaData().getColumnLabel(lnCtr));
+            if (p_oDetail.getMetaData().getColumnType(lnCtr) == Types.CHAR ||
+                p_oDetail.getMetaData().getColumnType(lnCtr) == Types.VARCHAR){
+                
+                System.out.println("Column index: " + (lnCtr) + " --> Size: " + p_oDetail.getMetaData().getColumnDisplaySize(lnCtr));
+            }
+        }
+        
+        System.out.println("----------------------------------------");
+        System.out.println("END: DETAIL TABLE INFO");
+        System.out.println("----------------------------------------");
+    }
+    
     public boolean DeleteTempTransaction(Temp_Transactions foValue) {
         boolean lbSuccess =  CommonUtil.saveTempOrder(p_oNautilus, foValue.getSourceCode(), foValue.getOrderNo(), foValue.getPayload(), "0");
         loadTempTransactions();
@@ -1040,20 +1293,22 @@ public class InvRequest implements XMasDetTrans{
         return lbSuccess;
     }
     
-    private void getDetail(int fnRow, String fsFieldNm, Object foValue) throws SQLException, ParseException{       
-        JSONObject loJSON = searchBranchInventory(fsFieldNm, foValue, true);
+    private void getDetail(int fnRow, int fnIndex, Object foValue) throws SQLException, ParseException{       
+        JSONObject loJSON;
         JSONParser loParser = new JSONParser();
         
-        switch(fsFieldNm){
-            case "a.sStockIDx":
+        switch(fnIndex){
+            case 3: //sStockIDx
+                loJSON = searchStocks("a.sStockIDx", foValue, true);
+                
                 if ("success".equals((String) loJSON.get("result"))){
                     loJSON = (JSONObject) ((JSONArray) loParser.parse((String) loJSON.get("payload"))).get(0);
                     
                     //check if the stock id was already exists
                     boolean lbExist = false;
                     
-                    for (int lnCtr = 0; lnCtr <= getItemCount() - 1; lnCtr ++){
-                        p_oDetail.absolute(lnCtr + 1);
+                    for (int lnCtr = 1; lnCtr <= getItemCount(); lnCtr ++){
+                        p_oDetail.absolute(lnCtr);
                         if (((String) p_oDetail.getObject("sStockIDx")).equals((String) loJSON.get("sStockIDx"))){
                             fnRow = lnCtr;
                             lbExist = true;
@@ -1061,7 +1316,7 @@ public class InvRequest implements XMasDetTrans{
                         }
                     }
                     
-                    p_oDetail.absolute(fnRow + 1);
+                    p_oDetail.absolute(fnRow);
                     p_oDetail.updateObject("sStockIDx", (String) loJSON.get("sStockIDx"));
                     p_oDetail.updateObject("nQuantity", Integer.parseInt(String.valueOf(p_oDetail.getObject("nQuantity"))) + 1);
                     
@@ -1070,19 +1325,23 @@ public class InvRequest implements XMasDetTrans{
                     p_oDetail.updateObject("nQtyOnHnd", Integer.parseInt(String.valueOf(loJSON.get("nQtyOnHnd"))));
                     p_oDetail.updateObject("nResvOrdr", Integer.parseInt(String.valueOf(loJSON.get("nResvOrdr"))));
                     p_oDetail.updateObject("nBackOrdr", Integer.parseInt(String.valueOf(loJSON.get("nBackOrdr"))));
-                    p_oDetail.updateObject("nOnTranst", Integer.parseInt(String.valueOf(loJSON.get("nOnTranst"))));
+                    p_oDetail.updateObject("nOnTranst", 0);
                     p_oDetail.updateObject("nAvgMonSl", Integer.parseInt(String.valueOf(loJSON.get("nAvgMonSl"))));
                     p_oDetail.updateObject("nMaxLevel", Integer.parseInt(String.valueOf(loJSON.get("nMaxLevel"))));
                     
-                    p_oDetail.updateObject("sBarCodex", (String) loJSON.get("sBarCodex"));
-                    p_oDetail.updateObject("sDescript", (String) loJSON.get("sDescript"));
-                    p_oDetail.updateObject("nQtyOnHnd", Integer.parseInt(String.valueOf(loJSON.get("nQtyOnHnd"))));
-                    p_oDetail.updateObject("sBrandCde", (String) loJSON.get("sBrandCde"));
-                    p_oDetail.updateObject("sModelCde", (String) loJSON.get("sModelCde"));
-                    p_oDetail.updateObject("sColorCde", (String) loJSON.get("sColorCde"));
+                    p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xBarCodex"), (String) loJSON.get("sBarCodex"));
+                    p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xDescript"), (String) loJSON.get("sDescript"));
+                    p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xQtyOnHnd"), Integer.parseInt(String.valueOf(loJSON.get("nQtyOnHnd"))));
+                    p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xBrandCde"), (String) loJSON.get("sBrandCde"));
+                    p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xModelCde"), (String) loJSON.get("sModelCde"));
+                    p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xColorCde"), (String) loJSON.get("sColorCde")); 
                     
-                    p_oDetail.updateRow();                    
+                    p_oDetail.updateRow();    
                     if (!lbExist) addDetail();
+                    
+                    if (p_oListener != null) p_oListener.DetailRetreive(fnRow, MiscUtil.getColumnIndex(p_oDetail, "xBarCodex"), getDetail(fnRow, "xBarCodex"));
+                    if (p_oListener != null) p_oListener.DetailRetreive(fnRow, MiscUtil.getColumnIndex(p_oDetail, "xDescript"), getDetail(fnRow, "xDescript"));
+                    if (p_oListener != null) p_oListener.DetailRetreive(fnRow, MiscUtil.getColumnIndex(p_oDetail, "nQuantity"), getDetail(fnRow, "nQuantity"));
                 }
         }
     }

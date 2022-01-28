@@ -342,6 +342,8 @@ public class InvSearchF implements iSearch{
                 lsSQL = MiscUtil.addCondition(getSQ_SPInv_Request(), "sInvTypCd = 'SP'"); break;
             case searchSPInventoryWPO:
                 lsSQL = MiscUtil.addCondition(getSQ_SP_Inventory_With_PO(), "a.sInvTypCd = 'SP'"); break;
+            case searchSPInvTransfer:
+                lsSQL = getSQ_SPInv_Transfer(); break;
             default:
                 break;
         }
@@ -361,7 +363,19 @@ public class InvSearchF implements iSearch{
         //add filter on query
         if (!_filter.isEmpty()){
             for (int lnCtr = 0; lnCtr <= _filter.size()-1; lnCtr++){
-                lsSQL = MiscUtil.addCondition(lsSQL, getFilterField(_filter.get(lnCtr)) + " LIKE " + SQLUtil.toSQL(_filter_value.get(lnCtr)));
+                if (getFilterField(_filter.get(lnCtr)).equalsIgnoreCase("ctranstat")){
+                    String lsStat = String.valueOf(_filter_value.get(lnCtr));
+        
+                    if (lsStat.length() > 1){
+                        for (int x = 0; x <= lsStat.length()-1; x++){
+                            lsSQL += ", " + SQLUtil.toSQL(Character.toString(lsStat.charAt(x)));
+                        }
+
+                        lsSQL = MiscUtil.addCondition(lsSQL, getFilterField(_filter.get(lnCtr)) + " IN (" + lsSQL.substring(2) + ")");
+                    } else 
+                        lsSQL = MiscUtil.addCondition(lsSQL, getFilterField(_filter.get(lnCtr)) + " = " + SQLUtil.toSQL(lsStat));
+                } else
+                    lsSQL = MiscUtil.addCondition(lsSQL, getFilterField(_filter.get(lnCtr)) + " LIKE " + SQLUtil.toSQL(_filter_value.get(lnCtr)));
             }
         }
         
@@ -452,6 +466,15 @@ public class InvSearchF implements iSearch{
                 _fields.add("sReferNox"); _fields_descript.add("Refer. No.");
 
                 _filter_list.add("sReferNox"); _filter_description.add("Refer. No.");
+                break;
+            case searchSPInvTransfer:
+                _fields.add("sTransNox"); _fields_descript.add("Trans. No.");
+                _fields.add("xDestinat"); _fields_descript.add("Destination");
+                _fields.add("dTransact"); _fields_descript.add("Date");
+                
+                _filter_list.add("a.sBranchCd"); _filter_description.add("Source");
+                _filter_list.add("a.sDestinat"); _filter_description.add("Destination.");
+                break;
             case searchSPInventoryWPO:
                 _filter_list.add("a.sBrandCde"); _filter_description.add("Brand Code");
                 _filter_list.add("a.sModelCde"); _filter_description.add("Model Code");
@@ -463,6 +486,7 @@ public class InvSearchF implements iSearch{
                 _fields.add("sBrandCde"); _fields_descript.add("Brand");
                 _fields.add("sModelCde"); _fields_descript.add("Model");
                 _fields.add("sColorCde"); _fields_descript.add("Color");
+                break;
             default:
                 break;
         }
@@ -610,6 +634,19 @@ public class InvSearchF implements iSearch{
                 " FROM Inv_Request_Master";
     }
     
+    private String getSQ_SPInv_Transfer(){
+        return "SELECT" +
+                    "  a.sTransNox" +					
+                    ", a.sBranchCd" +					
+                    ", DATE_FORMAT(a.dTransact, '%b %d, %Y') dTransact" +					
+                    ", a.sDestinat" +				
+                    ", b.sCompnyNm xSourcexx" +
+                    ", c.sCompnyNm xDestinat" +	
+                " FROM Inv_Transfer_Master a" +
+                    " LEFT JOIN xxxSysClient b ON a.sBranchCd = b.sBranchCd" +
+                    " LEFT JOIN xxxSysClient c ON a.sDestinat = b.sBranchCd";
+    }
+    
     private String getSQ_SP_Inventory_With_PO(){
         return "SELECT" +
                     "  a.sStockIDx" +
@@ -639,6 +676,7 @@ public class InvSearchF implements iSearch{
         searchMCSerial,
         searchSPInvRequest,
         searchSPInvRequestCancel,
-        searchSPInventoryWPO
+        searchSPInventoryWPO,
+        searchSPInvTransfer
     }
 }
