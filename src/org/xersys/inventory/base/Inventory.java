@@ -565,8 +565,8 @@ public class Inventory implements XRecord{
                     ", IFNULL(c.sDescript, '') xModelNme" +
                     ", IFNULL(d.sDescript, '') xInvTypNm" +
                 " FROM " + MASTER_TABLE + " a" +
-                    " LEFT JOIN Brand b ON a.sBrandCde = b.sBrandCde" +
-                    " LEFT JOIN Model c ON a.sModelCde = c.sModelCde" +
+                    " LEFT JOIN Brand b ON a.sBrandCde = b.sBrandCde AND a.sInvTypCd = b.sInvTypCd" +
+                    " LEFT JOIN Model c ON a.sModelCde = c.sModelCde AND a.sInvTypCd = c.sInvTypCd" +
                     " LEFT JOIN Inv_Type d ON a.sInvTypCd = d.sInvTypCd";
     }
     
