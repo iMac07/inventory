@@ -129,8 +129,6 @@ public class InvTransfer implements XMasDetTrans{
         try {
             switch (fnIndex){
                 case 4://sDestinat
-                case 6: //sTruckIDx
-                case 17: //sOrderNox
                     getMaster(fnIndex, foValue);
                     break;
                 case 5://sRemarksx
@@ -140,20 +138,9 @@ public class InvTransfer implements XMasDetTrans{
 
                     if (p_oListener != null) p_oListener.MasterRetreive(fnIndex, getMaster(fnIndex));
                     break;
-                case 7: //nFreightx
-                case 13: //nDiscount
-                    try {
-                        double x = Double.parseDouble(String.valueOf(foValue));
-                        
-                        p_oMaster.first();
-                        p_oMaster.updateDouble(fnIndex, x);
-                    } catch (NumberFormatException e) {
-                        p_oMaster.updateDouble(fnIndex, 0.00);
-                    }
-                    
-                    if (p_oListener != null) p_oListener.MasterRetreive(fnIndex, getMaster(fnIndex));
-                    break;
             }
+            
+            saveToDisk(RecordStatus.ACTIVE, "");
         } catch (ParseException | SQLException e) {
             e.printStackTrace();
         }
@@ -215,6 +202,8 @@ public class InvTransfer implements XMasDetTrans{
                     if (p_oListener != null) p_oListener.DetailRetreive(fnRow, fnIndex, getDetail(fnRow, fnIndex));
                     break;
             }
+            
+            saveToDisk(RecordStatus.ACTIVE, "");
         } catch (SQLException | ParseException e) {
             e.printStackTrace();
         }
@@ -401,7 +390,7 @@ public class InvTransfer implements XMasDetTrans{
                         p_oDetail.updateObject("sTransNox", p_oMaster.getObject("sTransNox"));
                         p_oDetail.updateObject("nEntryNox", lnCtr);
                     
-                        lsSQL = MiscUtil.rowset2SQL(p_oDetail, DETAIL_TABLE, "xBarCodex;xDescript;xBarCodeX;xClientNm");
+                        lsSQL = MiscUtil.rowset2SQL(p_oDetail, DETAIL_TABLE, "xBarCodex;xDescript;xBarCodeX;xClientNm;xQtyOnHnd");
 
                         if(p_oNautilus.executeUpdate(lsSQL, DETAIL_TABLE, p_sBranchCd, "") <= 0){
                             if(!p_oNautilus.getMessage().isEmpty())
@@ -698,8 +687,16 @@ public class InvTransfer implements XMasDetTrans{
     }
 
     @Override
-    public Object TempTransactions() {    
+    public ArrayList<Temp_Transactions> TempTransactions() {    
         return p_oTemp;
+    }
+    
+    public boolean DeleteTempTransaction(Temp_Transactions foValue) {
+        boolean lbSuccess =  CommonUtil.saveTempOrder(p_oNautilus, foValue.getSourceCode(), foValue.getOrderNo(), foValue.getPayload(), "0");
+        loadTempTransactions();
+        
+        p_nEditMode = EditMode.UNKNOWN;
+        return lbSuccess;
     }
     
     private String getSQ_Master(){
@@ -730,7 +727,7 @@ public class InvTransfer implements XMasDetTrans{
                     ", '' xTruckNme" +
                 " FROM Inv_Transfer_Master a" +
                     " LEFT JOIN xxxSysClient b ON a.sBranchCd = b.sBranchCd" +
-                    " LEFT JOIN xxxSysClient c ON c.sBranchCd = b.sBranchCd";
+                    " LEFT JOIN xxxSysClient c ON a.sDestinat = c.sBranchCd";
     }
     
     private String getSQ_Detail(){
@@ -748,10 +745,13 @@ public class InvTransfer implements XMasDetTrans{
                     ", b.sDescript xDescript" +
                     ", c.sBarCodex xBarCodeX" +
                     ", d.sClientNm xClientNm" +
+                    ", e.nQtyOnHnd xQtyOnHnd" +
                 " FROM Inv_Transfer_Detail a" +
                     " LEFT JOIN Inventory b ON a.sStockIDx = b.sStockIDx" +
                     " LEFT JOIN Inventory c ON a.sOrigIDxx = c.sStockIDx" +
-                    " LEFT JOIN Client_Master d ON a.sRecvIDxx = d.sClientID";
+                    " LEFT JOIN Client_Master d ON a.sRecvIDxx = d.sClientID" +
+                    " LEFT JOIN Inv_Master e ON a.sStockIDx = d.sStockIDx" +
+                        " AND e.sBranchCd = " + SQLUtil.toSQL((String) p_oNautilus.getBranchConfig("sBranchC"));
     }
     
     private void createMaster() throws SQLException{
@@ -888,7 +888,7 @@ public class InvTransfer implements XMasDetTrans{
     private void createDetail() throws SQLException{
         RowSetMetaData meta = new RowSetMetaDataImpl();
 
-        meta.setColumnCount(13);
+        meta.setColumnCount(14);
 
         meta.setColumnName(1, "sTransNox");
         meta.setColumnLabel(1, "sTransNox");
@@ -947,6 +947,10 @@ public class InvTransfer implements XMasDetTrans{
         meta.setColumnName(13, "xClientNm");
         meta.setColumnLabel(13, "xClientNm");
         meta.setColumnType(13, Types.VARCHAR);
+        
+        meta.setColumnName(14, "xQtyOnHnd");
+        meta.setColumnLabel(14, "xQtyOnHnd");
+        meta.setColumnType(14, Types.INTEGER);
         
         p_oDetail = new CachedRowSetImpl();
         p_oDetail.setMetaData(meta);
@@ -1306,10 +1310,8 @@ public class InvTransfer implements XMasDetTrans{
                     
                     p_oDetail.absolute(fnRow);
                     p_oDetail.updateObject(3, (String) loJSON.get("sStockIDx"));
-                    //p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "sOrigIDxx"), (String) loJSON.get("sOrigIDxx"));
-                    //p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xBarCodeX"), (String) loJSON.get("xBarCodeX"));
-                    //p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "sOrderNox"), (String) loJSON.get("sOrderNox"));
                     p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "nQuantity"), Integer.parseInt(String.valueOf(p_oDetail.getObject(MiscUtil.getColumnIndex(p_oDetail, "nQuantity")))) + 1);
+                    p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xQtyOnHnd"), Integer.parseInt(String.valueOf(loJSON.get("nQtyOnHnd"))));
                     p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "nInvCostx"), (double) loJSON.get("nUnitPrce"));
                     p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xBarCodex"), (String) loJSON.get("sBarCodex"));
                     p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xDescript"), (String) loJSON.get("sDescript"));
@@ -1319,6 +1321,8 @@ public class InvTransfer implements XMasDetTrans{
                     if (p_oListener != null) p_oListener.DetailRetreive(fnRow, MiscUtil.getColumnIndex(p_oDetail, "xBarCodex"), getDetail(fnRow, "xBarCodex"));
                     if (p_oListener != null) p_oListener.DetailRetreive(fnRow, MiscUtil.getColumnIndex(p_oDetail, "xDescript"), getDetail(fnRow, "xDescript"));
                     if (p_oListener != null) p_oListener.DetailRetreive(fnRow, MiscUtil.getColumnIndex(p_oDetail, "nQuantity"), getDetail(fnRow, "nQuantity"));
+                    if (p_oListener != null) p_oListener.DetailRetreive(fnRow, MiscUtil.getColumnIndex(p_oDetail, "nInvCostx"), getDetail(fnRow, "nInvCostx"));
+                    if (p_oListener != null) p_oListener.DetailRetreive(fnRow, MiscUtil.getColumnIndex(p_oDetail, "xQtyOnHnd"), getDetail(fnRow, "xQtyOnHnd"));
                 }
         }
     }

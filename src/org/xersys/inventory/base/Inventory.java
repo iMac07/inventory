@@ -619,10 +619,10 @@ public class Inventory implements XRecord{
                 return false;
             }
             
-            if (p_oMaster.getString("sBriefDsc").isEmpty()){
-                setMessage("Brief description must not be empty.");
-                return false;
-            }          
+//            if (p_oMaster.getString("sBriefDsc").isEmpty()){
+//                setMessage("Brief description must not be empty.");
+//                return false;
+//            }          
 
             return true;
         } catch (SQLException e) {

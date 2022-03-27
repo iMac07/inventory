@@ -65,7 +65,7 @@ public class InvRequest implements XMasDetTrans{
         p_bWithParent = fbWithParent;
         p_nEditMode = EditMode.UNKNOWN;
         
-        p_oSearchItem = new InvSearchF(p_oNautilus, InvSearchF.SearchType.searchStocks);
+        p_oSearchItem = new InvSearchF(p_oNautilus, InvSearchF.SearchType.searchBranchStocks);
         p_oSearchTrans = new InvSearchF(p_oNautilus, InvSearchF.SearchType.searchSPInvRequest);
         
         loadTempTransactions();
@@ -107,6 +107,7 @@ public class InvRequest implements XMasDetTrans{
             p_oMaster.first();
             
             switch (fnIndex){
+                case 5: //sReferNox
                 case 6: //sRemarksx
                 case 7: //sIssNotes
                     p_oMaster.updateString(fnIndex, (String) foValue);
@@ -730,6 +731,10 @@ public class InvRequest implements XMasDetTrans{
         p_oSearchTrans.addFilter("Status", p_nTranStat);
         
         return p_oSearchTrans.Search();
+    }
+    
+    public InvSearchF getSearchTransaction(){
+        return p_oSearchTrans;
     }
     
     private String getSQ_Master(){

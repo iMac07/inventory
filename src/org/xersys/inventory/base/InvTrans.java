@@ -152,6 +152,17 @@ public class InvTrans {
         return saveTransaction();
     }
     
+    public boolean WholeSale(String fsSourceNo,
+                                Date fdTransDate,
+                                int fnUpdateMode){        
+        p_sSourceCd = InvConstants.WHOLESALE;
+        p_sSourceNo = fsSourceNo;
+        p_dTransact = fdTransDate;
+        p_nEditMode = fnUpdateMode;
+        
+        return saveTransaction();
+    }
+    
     public boolean CreditMemo(String fsSourceNo,
                                     Date fdTransDate,
                                     int fnUpdateMode){        
