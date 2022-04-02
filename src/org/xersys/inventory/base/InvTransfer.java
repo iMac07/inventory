@@ -456,14 +456,14 @@ public class InvTransfer implements XMasDetTrans{
         setMessage("");       
         
         try {
-            if (p_oMaster != null){
-                p_oMaster.first();
-
-                if (p_oMaster.getString("sTransNox").equals(fsTransNox)){
-                    p_nEditMode  = EditMode.READY;
-                    return true;
-                }
-            }
+//            if (p_oMaster != null){
+//                p_oMaster.first();
+//
+//                if (p_oMaster.getString("sTransNox").equals(fsTransNox)){
+//                    p_nEditMode  = EditMode.READY;
+//                    return true;
+//                }
+//            }
             
             String lsSQL;
             ResultSet loRS;
@@ -750,8 +750,8 @@ public class InvTransfer implements XMasDetTrans{
                     " LEFT JOIN Inventory b ON a.sStockIDx = b.sStockIDx" +
                     " LEFT JOIN Inventory c ON a.sOrigIDxx = c.sStockIDx" +
                     " LEFT JOIN Client_Master d ON a.sRecvIDxx = d.sClientID" +
-                    " LEFT JOIN Inv_Master e ON a.sStockIDx = d.sStockIDx" +
-                        " AND e.sBranchCd = " + SQLUtil.toSQL((String) p_oNautilus.getBranchConfig("sBranchC"));
+                    " LEFT JOIN Inv_Master e ON a.sStockIDx = e.sStockIDx" +
+                        " AND e.sBranchCd = " + SQLUtil.toSQL((String) p_oNautilus.getBranchConfig("sBranchCd"));
     }
     
     private void createMaster() throws SQLException{

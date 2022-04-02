@@ -180,6 +180,7 @@ public class Inventory implements XRecord{
         }
         
         if (p_sMessagex.isEmpty()){
+            p_oMaster = null;
             p_nEditMode = EditMode.UNKNOWN;
             return true;
         } else return false;
@@ -199,14 +200,14 @@ public class Inventory implements XRecord{
         setMessage("");       
         
         try {
-            if (p_oMaster != null){
-                p_oMaster.first();
-
-                if (p_oMaster.getString("sStockIDx").equals(fsValue)){
-                    p_nEditMode  = EditMode.READY;
-                    return true;
-                }
-            }
+//            if (p_oMaster != null){
+//                p_oMaster.first();
+//
+//                if (p_oMaster.getString("sStockIDx").equals(fsValue)){
+//                    p_nEditMode  = EditMode.READY;
+//                    return true;
+//                }
+//            }
             
             String lsSQL;
             ResultSet loRS;
@@ -244,12 +245,74 @@ public class Inventory implements XRecord{
 
     @Override
     public boolean DeactivateRecord(String fsTransNox) {
-        return false;
+        if (p_nEditMode != EditMode.READY) return false;
+        
+        setMessage("");
+        
+        try {
+            if (!p_oMaster.getString("cRecdStat").equals("1")){
+                setMessage("Record was already inactive.");
+                return false;
+            }
+            
+            String lsSQL = "UPDATE Inventory SET" +
+                                "  cRecdStat = '0'" +
+                                ", dModified = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
+                            " WHERE sStockIDx = " + SQLUtil.toSQL(fsTransNox);
+            
+            if (p_oNautilus.executeUpdate(lsSQL, "Inventory", p_sBranchCd, "") <= 0){
+                if(!p_oNautilus.getMessage().isEmpty())
+                    setMessage(p_oNautilus.getMessage());
+                else
+                    setMessage("No record updated");
+            }
+            
+            return true;
+        } catch (SQLException e) {
+            setMessage(e.getMessage());
+        }
+        
+        if (p_sMessagex.isEmpty()){
+            p_oMaster = null;
+            p_nEditMode = EditMode.UNKNOWN;
+            return true;
+        } else return false;
     }
 
     @Override
     public boolean ActivateRecord(String fsTransNox) {
-        return false;
+        if (p_nEditMode != EditMode.READY) return false;
+        
+        setMessage("");
+        
+        try {
+            if (p_oMaster.getString("cRecdStat").equals("1")){
+                setMessage("Record was already active.");
+                return false;
+            }
+            
+            String lsSQL = "UPDATE Inventory SET" +
+                                "  cRecdStat = '1'" +
+                                ", dModified = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
+                            " WHERE sStockIDx = " + SQLUtil.toSQL(fsTransNox);
+            
+            if (p_oNautilus.executeUpdate(lsSQL, "Inventory", p_sBranchCd, "") <= 0){
+                if(!p_oNautilus.getMessage().isEmpty())
+                    setMessage(p_oNautilus.getMessage());
+                else
+                    setMessage("No record updated");
+            }
+            
+            return true;
+        } catch (SQLException e) {
+            setMessage(e.getMessage());
+        }
+        
+        if (p_sMessagex.isEmpty()){
+            p_oMaster = null;
+            p_nEditMode = EditMode.UNKNOWN;
+            return true;
+        } else return false;
     }
     
     @Override
