@@ -147,14 +147,14 @@ public class InvMaster implements XRecord{
         setMessage("");       
         
         try {
-            if (p_oMaster != null){
-                p_oMaster.first();
-
-                if (p_oMaster.getString("sStockIDx").equals(fsValue)){
-                    p_nEditMode  = EditMode.READY;
-                    return true;
-                }
-            }
+//            if (p_oMaster != null){
+//                p_oMaster.first();
+//
+//                if (p_oMaster.getString("sStockIDx").equals(fsValue)){
+//                    p_nEditMode  = EditMode.READY;
+//                    return true;
+//                }
+//            }
             
             String lsSQL;
             ResultSet loRS;

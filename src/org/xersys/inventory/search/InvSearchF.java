@@ -340,6 +340,8 @@ public class InvSearchF implements iSearch{
                 lsSQL = getSQ_MC_Serial(); break;
             case searchSPInvRequest:
                 lsSQL = MiscUtil.addCondition(getSQ_SPInv_Request(), "sInvTypCd = 'SP'"); break;
+            case searchSPInvAdjustment:
+                lsSQL = MiscUtil.addCondition(getSQ_SPInv_Adjusment(), "sInvTypCd = 'SP'"); break;
             case searchSPInventoryWPO:
                 lsSQL = MiscUtil.addCondition(getSQ_SP_Inventory_With_PO(), "a.sInvTypCd = 'SP'"); break;
             case searchSPInvTransfer:
@@ -484,6 +486,7 @@ public class InvSearchF implements iSearch{
 //                _filter_list.add("d.sDescript"); _filter_description.add("Model");
                 break;
             case searchSPInvRequest:
+            case searchSPInvAdjustment:
                 _fields.add("sTransNox"); _fields_descript.add("Trans. No.");
                 _fields.add("sRemarksx"); _fields_descript.add("Remarks");
                 _fields.add("dTransact"); _fields_descript.add("Date");
@@ -498,7 +501,8 @@ public class InvSearchF implements iSearch{
                 _fields.add("dTransact"); _fields_descript.add("Date");
                 
                 _filter_list.add("a.sBranchCd"); _filter_description.add("Source");
-                _filter_list.add("a.sDestinat"); _filter_description.add("Destination.");
+                _filter_list.add("a.cTranStat"); _filter_description.add("Status");
+                _filter_list.add("a.sDestinat"); _filter_description.add("Destination");
                 break;
             case searchSPInventoryWPO:
                 _filter_list.add("a.sBrandCde"); _filter_description.add("Brand Code");
@@ -664,6 +668,15 @@ public class InvSearchF implements iSearch{
                 " FROM Inv_Stock_Request_Master";
     }
     
+    private String getSQ_SPInv_Adjusment(){
+        return "SELECT" +
+                    "  sTransNox" +
+                    ", sRemarksx" +
+                    ", dTransact" +
+                    ", sReferNox" +
+                " FROM Inv_Adjustment_Master";
+    }
+    
     private String getSQ_SPInv_Transfer(){
         return "SELECT" +
                     "  a.sTransNox" +					
@@ -707,6 +720,7 @@ public class InvSearchF implements iSearch{
         searchSPInvRequest,
         searchSPInvRequestCancel,
         searchSPInventoryWPO,
-        searchSPInvTransfer
+        searchSPInvTransfer,
+        searchSPInvAdjustment
     }
 }

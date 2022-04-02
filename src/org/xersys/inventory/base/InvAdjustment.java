@@ -25,14 +25,13 @@ import org.xersys.commander.iface.XNautilus;
 import org.xersys.commander.util.CommonUtil;
 import org.xersys.commander.util.MiscUtil;
 import org.xersys.commander.util.SQLUtil;
-import org.xersys.commander.util.StringUtil;
 import org.xersys.inventory.search.InvSearchF;
 import org.xersys.lib.pojo.Temp_Transactions;
 
-public class InvRequest implements XMasDetTrans{
-    private final String MASTER_TABLE = "Inv_Stock_Request_Master";
-    private final String DETAIL_TABLE = "Inv_Stock_Request_Detail";
-    private final String SOURCE_CODE = "SPRq";
+public class InvAdjustment implements XMasDetTrans{
+    private final String MASTER_TABLE = "Inv_Adjustment_Master";
+    private final String DETAIL_TABLE = "Inv_Adjustment_Detail";
+    private final String SOURCE_CODE = "SPAd";
     private final String INV_TYPE = "SP";
     
     private final XNautilus p_oNautilus;
@@ -58,7 +57,7 @@ public class InvRequest implements XMasDetTrans{
     
     private ArrayList<Temp_Transactions> p_oTemp;
 
-    public InvRequest(XNautilus foNautilus, String fsBranchCd, boolean fbWithParent){
+    public InvAdjustment(XNautilus foNautilus, String fsBranchCd, boolean fbWithParent){
         p_bWithUI = true;
         p_oNautilus = foNautilus;
         p_sBranchCd = fsBranchCd;
@@ -66,12 +65,12 @@ public class InvRequest implements XMasDetTrans{
         p_nEditMode = EditMode.UNKNOWN;
         
         p_oSearchItem = new InvSearchF(p_oNautilus, InvSearchF.SearchType.searchBranchStocks);
-        p_oSearchTrans = new InvSearchF(p_oNautilus, InvSearchF.SearchType.searchSPInvRequest);
+        p_oSearchTrans = new InvSearchF(p_oNautilus, InvSearchF.SearchType.searchSPInvAdjustment);
         
         loadTempTransactions();
     }
     
-    public InvRequest(XNautilus foNautilus, String fsBranchCd, boolean fbWithParent, int fnTranStat){
+    public InvAdjustment(XNautilus foNautilus, String fsBranchCd, boolean fbWithParent, int fnTranStat){
         p_bWithUI = true;
         p_oNautilus = foNautilus;
         p_sBranchCd = fsBranchCd;
@@ -80,7 +79,7 @@ public class InvRequest implements XMasDetTrans{
         p_nEditMode = EditMode.UNKNOWN;
         
         p_oSearchItem = new InvSearchF(p_oNautilus, InvSearchF.SearchType.searchStocks);
-        p_oSearchTrans = new InvSearchF(p_oNautilus, InvSearchF.SearchType.searchSPInvRequest);
+        p_oSearchTrans = new InvSearchF(p_oNautilus, InvSearchF.SearchType.searchSPInvAdjustment);
         
         loadTempTransactions();
     }
@@ -97,8 +96,7 @@ public class InvRequest implements XMasDetTrans{
 
     @Override
     public void setMaster(int fnIndex, Object foValue) {
-        if (p_nEditMode != EditMode.ADDNEW &&
-            p_nEditMode != EditMode.UPDATE){
+        if (p_nEditMode != EditMode.ADDNEW){
             System.err.println("Transaction is not on update mode.");
             return;
         }
@@ -109,7 +107,8 @@ public class InvRequest implements XMasDetTrans{
             switch (fnIndex){
                 case 5: //sReferNox
                 case 6: //sRemarksx
-                case 7: //sIssNotes
+                case 8: //sSourceNo
+                case 9: //sSourceCd
                     p_oMaster.updateString(fnIndex, (String) foValue);
                     p_oMaster.updateRow();
                     break;
@@ -160,8 +159,7 @@ public class InvRequest implements XMasDetTrans{
     
     @Override
     public void setDetail(int fnRow, int fnIndex, Object foValue) {
-        if (p_nEditMode != EditMode.ADDNEW &&
-            p_nEditMode != EditMode.UPDATE){
+        if (p_nEditMode != EditMode.ADDNEW){
             System.err.println("Transaction is not on update mode.");
             return;
         }
@@ -171,14 +169,20 @@ public class InvRequest implements XMasDetTrans{
                 case 3: //sStockIDx
                     getDetail(fnRow, fnIndex, foValue);                    
                     break;
-                case 4: //nQuantity
-                case 13: //nApproved
-                    if (StringUtil.isNumeric(String.valueOf(foValue))){
+                case 4: //nCredtQty
+                case 5: //nDebitQty
+                    if (foValue instanceof Integer){
                         p_oDetail.absolute(fnRow);
                         p_oDetail.updateObject(fnIndex, foValue);
                         p_oDetail.updateRow();
                     }
+                    
                     if (p_oListener != null) p_oListener.DetailRetreive(fnRow, fnIndex, getDetail(fnRow, fnIndex));
+                    break;
+                case 7: //sRemarksx
+                    p_oDetail.absolute(fnRow);
+                    p_oDetail.updateObject(fnIndex, (String) foValue);
+                    p_oDetail.updateRow();
                     break;
             }
 
@@ -331,8 +335,9 @@ public class InvRequest implements XMasDetTrans{
             
             if (loTran.next()){
                 lbLoad = toDTO(loTran.getString("sPayloadx"));
+                refreshDetail();
             }            
-        } catch (SQLException ex) {
+        } catch (SQLException | ParseException ex) {
             setMessage(ex.getMessage());
             lbLoad = false;
         } finally {
@@ -480,6 +485,12 @@ public class InvRequest implements XMasDetTrans{
             p_oDetail.populate(loRS);
             MiscUtil.close(loRS);
             
+            
+            if ((int) getMaster("nEntryNox") != getItemCount()){
+                setMessage("Transaction discrepancy detected.");
+                return false;
+            }
+            
             if (p_oMaster.size() == 1) {                            
                 p_nEditMode  = EditMode.READY;
                 return true;
@@ -522,12 +533,12 @@ public class InvRequest implements XMasDetTrans{
             }
             
             if ((TransactionStatus.STATE_CANCELLED).equals(loRS.getString("cTranStat"))){
-                setMessage("Unable to approve cancelled transactons.");
+                setMessage("Unable to veriy cancelled transactons.");
                 return false;
             }        
 
             if ((TransactionStatus.STATE_POSTED).equals(loRS.getString("cTranStat"))){
-                setMessage("Unable to approve posted transactons.");
+                setMessage("Unable to veriy posted transactons.");
                 return false;
             }
 
@@ -537,7 +548,9 @@ public class InvRequest implements XMasDetTrans{
             }
             
             lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
-                        "  cTranStat = " + TransactionStatus.STATE_CLOSED +
+                        "  sVerified = " + SQLUtil.toSQL((String) p_oNautilus.getUserInfo("sUserIDxx")) +
+                        ", dVerified= " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
+                        ", cTranStat = " + TransactionStatus.STATE_CLOSED +
                         ", dModified= " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                     " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));
 
@@ -586,7 +599,7 @@ public class InvRequest implements XMasDetTrans{
                 p_nEditMode  = EditMode.UNKNOWN;
                 return true;
             }
-            
+
             lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                         "  cTranStat = " + TransactionStatus.STATE_CANCELLED +
                         ", dModified= " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
@@ -598,43 +611,8 @@ public class InvRequest implements XMasDetTrans{
                 return false;
             }
 
-//            InvRequestCancel loCancel = new InvRequestCancel(p_oNautilus, p_sBranchCd, true);
-//            
-//            if (loCancel.NewTransaction()){
-//                if (!p_bWithParent) p_oNautilus.beginTrans();
-//                
-//                loCancel.setMaster("sInvTypCd", SOURCE_CODE);
-//                loCancel.setMaster("sOrderNox", getMaster("sTransNox"));
-//                loCancel.setMaster("sRemarksx", "System auto encoded from SP Order.");
-//                
-//                int lnCtr = 1;
-//                p_oDetail.beforeFirst();
-//                while (p_oDetail.next()){
-//                    loCancel.setDetail(lnCtr, "sStockIDx", (String) p_oDetail.getObject("sStockIDx"));
-//                    loCancel.setDetail(lnCtr, "nQuantity", (int) p_oDetail.getObject("nQuantity"));
-//                    lnCtr++;
-//                }
-//                
-//                if (!loCancel.SaveTransaction(true)){
-//                    if (!p_bWithParent) p_oNautilus.commitTrans();
-//                    setMessage(loCancel.getMessage());
-//                    return false;
-//                }
-//                
-//                if (!loCancel.CloseTransaction()){
-//                    if (!p_bWithParent) p_oNautilus.commitTrans();
-//                    setMessage(loCancel.getMessage());
-//                    return false;
-//                }
-//                
-//                if (!p_bWithParent) p_oNautilus.commitTrans();
-//            } else {
-//                setMessage(loCancel.getMessage());
-//                return false;
-//            }
-
             p_nEditMode  = EditMode.UNKNOWN;
-            return true;
+            return true; 
         } catch (SQLException ex) {
             ex.printStackTrace();
             setMessage(ex.getMessage());
@@ -669,10 +647,6 @@ public class InvRequest implements XMasDetTrans{
             }
 
             if (!p_bWithParent) p_oNautilus.beginTrans();
-            
-//            if ((TransactionStatus.STATE_CLOSED).equals(loRS.getString("cTranStat"))){
-//                if (!delInvTrans()) return false;
-//            }
            
             lsSQL = "DELETE FROM " + MASTER_TABLE +
                     " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));
@@ -708,7 +682,61 @@ public class InvRequest implements XMasDetTrans{
     @Override
     public boolean PostTransaction() {
         System.out.println(this.getClass().getSimpleName() + ".PostTransaction()");
-        return false;
+        
+        try {
+            if (p_nEditMode != EditMode.READY){
+                setMessage("No transaction to update.");
+                return false;
+            }
+            
+            //re-open the transaction assuming the possibility of multiple PC loading of txs
+            String lsSQL = MiscUtil.addCondition(getSQ_Master(), 
+                                "a.sTransNox = " + SQLUtil.toSQL(getMaster("sTransNox")));
+            ResultSet loRS = p_oNautilus.executeQuery(lsSQL);
+            
+            if (!loRS.next()){
+                setMessage("Transaction went missing.");
+                return false;
+            }
+            
+            if ((TransactionStatus.STATE_CANCELLED).equals(loRS.getString("cTranStat"))){
+                setMessage("Unable to approve cancelled transactons.");
+                return false;
+            }        
+
+            if ((TransactionStatus.STATE_POSTED).equals(loRS.getString("cTranStat"))){                
+                p_nEditMode  = EditMode.UNKNOWN;
+                return true;
+            }
+
+            if (!(TransactionStatus.STATE_CLOSED).equals(loRS.getString("cTranStat"))){
+                setMessage("Unable to approve unverified transactons.");
+                return false;
+            }
+            
+            if (!saveInvTrans()) return false;
+            
+            lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
+                        "  sApproved = " + SQLUtil.toSQL((String) p_oNautilus.getUserInfo("sUserIDxx")) +
+                        ", dApproved= " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
+                        ", cTranStat = " + TransactionStatus.STATE_POSTED +
+                        ", dModified= " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
+                    " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));
+
+            if (p_oNautilus.executeUpdate(lsSQL, MASTER_TABLE, p_sBranchCd, "") <= 0){
+                if (!p_bWithParent) p_oNautilus.rollbackTrans();
+                setMessage(p_oNautilus.getMessage());
+                return false;
+            }
+
+            p_nEditMode  = EditMode.UNKNOWN;
+            return true; 
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+            setMessage(ex.getMessage());
+        }
+        
+        return false; 
     }
 
     @Override
@@ -750,18 +778,16 @@ public class InvRequest implements XMasDetTrans{
                     ", a.dTransact" +
                     ", a.sReferNox" +
                     ", a.sRemarksx" +
-                    ", a.sIssNotes" +
-                    ", a.nCurrInvx" +
-                    ", a.nEstInvxx" +
+                    ", a.nEntryNox" +
+                    ", a.sSourceNo" +
+                    ", a.sSourceCd" +
+                    ", a.sVerified" +
+                    ", a.dVerified" +
                     ", a.sApproved" +
                     ", a.dApproved" +
-                    ", a.sAprvCode" +
-                    ", a.nEntryNox" +
-                    ", a.sSourceCd" +
-                    ", a.sSourceNo" +
-                    ", a.cConfirmd" +
                     ", a.cTranStat" +
                     ", a.dCreatedx" +
+                    ", a.sModified" +
                     ", a.dModified" +
                     ", IFNULL(b.sDescript, '') xInvTypNm" +
                 " FROM " + MASTER_TABLE + " a" +
@@ -773,22 +799,10 @@ public class InvRequest implements XMasDetTrans{
                     "  a.sTransNox" +
                     ", a.nEntryNox" +
                     ", a.sStockIDx" +
-                    ", a.nQuantity" +
-                    ", a.cClassify" +
-                    ", a.nRecOrder" +
-                    ", a.nQtyOnHnd" +
-                    ", a.nResvOrdr" +
-                    ", a.nBackOrdr" +
-                    ", a.nOnTranst" +
-                    ", a.nAvgMonSl" +
-                    ", a.nMaxLevel" +
-                    ", a.nApproved" +
-                    ", a.nCancelld" +
-                    ", a.nIssueQty" +
-                    ", a.nOrderQty" +
-                    ", a.nAllocQty" +
-                    ", a.nReceived" +
-                    ", a.sNotesxxx" +
+                    ", a.nCredtQty" +
+                    ", a.nDebitQty" +
+                    ", a.nInvCostx" +
+                    ", a.sRemarksx" +
                     ", b.sBarCodex xBarCodex" +
                     ", b.sDescript xDescript" +
                     ", IFNULL(c.nQtyOnHnd, 0) xQtyOnHnd" +
@@ -963,20 +977,33 @@ public class InvRequest implements XMasDetTrans{
             p_oDetail.absolute(lnCtr);
             if ("".equals((String) p_oDetail.getObject("sStockIDx"))){
                 p_oDetail.deleteRow();
+            } else if ((int) p_oDetail.getObject("nDebitQty") <= 0 && 
+                (int) p_oDetail.getObject("nCredtQty") <= 0){
+                p_oDetail.deleteRow();
             }
 
+            lnCtr = getItemCount();
             //validate if there is a detail record
-            if (getItemCount() <= 0) {
-                setMessage("There is no item in this transaction");
+            if (lnCtr <= 0) {
+                setMessage("There is no item in this transaction.");
                 addDetail(); //add detail to prevent error on the next attempt of saving
                 return false;
+            }
+            
+            for(lnCtr = 1; lnCtr <= getItemCount(); lnCtr++){
+                if ((int) getDetail(lnCtr, "nCredtQty") <= 0 &&
+                        (int) getDetail(lnCtr, "nDebitQty") <= 0){
+                    setMessage("An item has zero debit and credit quantity.");
+                    return false;
+                }
             }
 
             //assign values to master record
             p_oMaster.first();
             p_oMaster.updateObject("sBranchCd", (String) p_oNautilus.getBranchConfig("sBranchCd"));
             p_oMaster.updateObject("dTransact", p_oNautilus.getServerDate());
-            p_oMaster.updateObject("sInvTypCd", INV_TYPE);            
+            p_oMaster.updateObject("sInvTypCd", INV_TYPE);      
+            p_oMaster.updateObject("nEntryNox", getItemCount());      
 
             String lsSQL = "SELECT dCreatedx FROM xxxTempTransactions" +
                             " WHERE sSourceCd = " + SQLUtil.toSQL(SOURCE_CODE) +
@@ -998,21 +1025,10 @@ public class InvRequest implements XMasDetTrans{
         }
     }
     
-    private void initMaster() throws SQLException{
-        p_oMaster.last();
-        p_oMaster.moveToInsertRow();
-        
-        MiscUtil.initRowSet(p_oMaster);
-        p_oMaster.updateObject("cTranStat", TransactionStatus.STATE_OPEN);
-        
-        p_oMaster.insertRow();
-        p_oMaster.moveToCurrentRow();
-    }
-    
     private void createMaster() throws SQLException{
         RowSetMetaData meta = new RowSetMetaDataImpl();
 
-        meta.setColumnCount(20);
+        meta.setColumnCount(18);
 
         meta.setColumnName(1, "sTransNox");
         meta.setColumnLabel(1, "sTransNox");
@@ -1043,69 +1059,59 @@ public class InvRequest implements XMasDetTrans{
         meta.setColumnType(6, Types.VARCHAR);
         meta.setColumnDisplaySize(6, 128);
         
-        meta.setColumnName(7, "sIssNotes");
-        meta.setColumnLabel(7, "sIssNotes");
-        meta.setColumnType(7, Types.VARCHAR);
-        meta.setColumnDisplaySize(7, 128);
+        meta.setColumnName(7, "nEntryNox");
+        meta.setColumnLabel(7, "nEntryNox");
+        meta.setColumnType(7, Types.INTEGER);
         
-        meta.setColumnName(8, "nCurrInvx");
-        meta.setColumnLabel(8, "nCurrInvx");
-        meta.setColumnType(8, Types.INTEGER);
+        meta.setColumnName(8, "sSourceNo");
+        meta.setColumnLabel(8, "sSourceNo");
+        meta.setColumnType(8, Types.VARCHAR);
+        meta.setColumnDisplaySize(8, 12);
         
-        meta.setColumnName(9, "nEstInvxx");
-        meta.setColumnLabel(9, "nEstInvxx");
-        meta.setColumnType(9, Types.INTEGER);
+        meta.setColumnName(9, "sSourceCd");
+        meta.setColumnLabel(9, "sSourceCd");
+        meta.setColumnType(9, Types.VARCHAR);
+        meta.setColumnDisplaySize(9, 4);
         
-        meta.setColumnName(10, "sApproved");
-        meta.setColumnLabel(10, "sApproved");
+        meta.setColumnName(10, "sVerified");
+        meta.setColumnLabel(10, "sVerified");
         meta.setColumnType(10, Types.VARCHAR);
         meta.setColumnDisplaySize(10, 12);
         
-        meta.setColumnName(11, "dApproved");
-        meta.setColumnLabel(11, "dApproved");
+        meta.setColumnName(11, "dVerified");
+        meta.setColumnLabel(11, "dVerified");
         meta.setColumnType(11, Types.TIMESTAMP);
         
-        meta.setColumnName(12, "sAprvCode");
-        meta.setColumnLabel(12, "sAprvCode");
+        meta.setColumnName(12, "sApproved");
+        meta.setColumnLabel(12, "sApproved");
         meta.setColumnType(12, Types.VARCHAR);
         meta.setColumnDisplaySize(12, 12);
         
-        meta.setColumnName(13, "nEntryNox");
-        meta.setColumnLabel(13, "nEntryNox");
-        meta.setColumnType(13, Types.INTEGER);
+        meta.setColumnName(13, "dApproved");
+        meta.setColumnLabel(13, "dApproved");
+        meta.setColumnType(13, Types.TIMESTAMP);   
         
-        meta.setColumnName(14, "sSourceCd");
-        meta.setColumnLabel(14, "sSourceCd");
-        meta.setColumnType(14, Types.VARCHAR);
-        meta.setColumnDisplaySize(14, 4);
+        meta.setColumnName(14, "cTranStat");
+        meta.setColumnLabel(14, "cTranStat");
+        meta.setColumnType(14, Types.CHAR);
+        meta.setColumnDisplaySize(14, 1);
         
-        meta.setColumnName(15, "sSourceNo");
-        meta.setColumnLabel(15, "sSourceNo");
-        meta.setColumnType(15, Types.VARCHAR);
-        meta.setColumnDisplaySize(15, 12);
+        meta.setColumnName(15, "dCreatedx");
+        meta.setColumnLabel(15, "dCreatedx");
+        meta.setColumnType(15, Types.TIMESTAMP);
         
-        meta.setColumnName(16, "cConfirmd");
-        meta.setColumnLabel(16, "cConfirmd");
-        meta.setColumnType(16, Types.CHAR);
-        meta.setColumnDisplaySize(16, 1);
+        meta.setColumnName(16, "sModified");
+        meta.setColumnLabel(16, "sModified");
+        meta.setColumnType(16, Types.VARCHAR);
+        meta.setColumnDisplaySize(16, 12);
         
-        meta.setColumnName(17, "cTranStat");
-        meta.setColumnLabel(17, "cTranStat");
-        meta.setColumnType(17, Types.CHAR);
-        meta.setColumnDisplaySize(17, 1);
+        meta.setColumnName(17, "dModified");
+        meta.setColumnLabel(17, "dModified");
+        meta.setColumnType(17, Types.TIMESTAMP);
         
-        meta.setColumnName(18, "dCreatedx");
-        meta.setColumnLabel(18, "dCreatedx");
-        meta.setColumnType(18, Types.TIMESTAMP);
-        
-        meta.setColumnName(19, "dModified");
-        meta.setColumnLabel(19, "dModified");
-        meta.setColumnType(19, Types.TIMESTAMP);
-        
-        meta.setColumnName(20, "xInvTypNm");
-        meta.setColumnLabel(20, "xInvTypNm");
-        meta.setColumnType(20, Types.VARCHAR);
-        
+        meta.setColumnName(18, "xInvTypNm");
+        meta.setColumnLabel(18, "xInvTypNm");
+        meta.setColumnType(18, Types.VARCHAR);
         
         p_oMaster = new CachedRowSetImpl();
         p_oMaster.setMetaData(meta);
@@ -1117,7 +1123,6 @@ public class InvRequest implements XMasDetTrans{
         
         p_oMaster.updateObject("sTransNox", MiscUtil.getNextCode(MASTER_TABLE, "sTransNox", true, getConnection(), p_sBranchCd));
         p_oMaster.updateObject("dTransact", p_oNautilus.getServerDate());
-        p_oMaster.updateObject("cConfirmd", "0");
         p_oMaster.updateObject("cTranStat", TransactionStatus.STATE_OPEN);
         
         p_oMaster.insertRow();
@@ -1127,7 +1132,7 @@ public class InvRequest implements XMasDetTrans{
     private void createDetail() throws SQLException{
         RowSetMetaData meta = new RowSetMetaDataImpl();
 
-        meta.setColumnCount(25);
+        meta.setColumnCount(13);
 
         meta.setColumnName(1, "sTransNox");
         meta.setColumnLabel(1, "sTransNox");
@@ -1143,95 +1148,46 @@ public class InvRequest implements XMasDetTrans{
         meta.setColumnType(3, Types.VARCHAR);
         meta.setColumnDisplaySize(3, 12);
         
-        meta.setColumnName(4, "nQuantity");
-        meta.setColumnLabel(4, "nQuantity");
+        meta.setColumnName(4, "nCredtQty");
+        meta.setColumnLabel(4, "nCredtQty");
         meta.setColumnType(4, Types.INTEGER);
         
-        meta.setColumnName(5, "cClassify");
-        meta.setColumnLabel(5, "cClassify");
-        meta.setColumnType(5, Types.CHAR);
-        meta.setColumnDisplaySize(5, 1);
+        meta.setColumnName(5, "nDebitQty");
+        meta.setColumnLabel(5, "nDebitQty");
+        meta.setColumnType(5, Types.INTEGER);
         
-        meta.setColumnName(6, "nRecOrder");
-        meta.setColumnLabel(6, "nRecOrder");
-        meta.setColumnType(6, Types.INTEGER);
+        meta.setColumnName(6, "nInvCostx");
+        meta.setColumnLabel(6, "nInvCostx");
+        meta.setColumnType(6, Types.DOUBLE);
         
-        meta.setColumnName(7, "nQtyOnHnd");
-        meta.setColumnLabel(7, "nQtyOnHnd");
-        meta.setColumnType(7, Types.INTEGER);
+        meta.setColumnName(7, "sRemarksx");
+        meta.setColumnLabel(7, "sRemarksx");
+        meta.setColumnType(7, Types.VARCHAR);
+        meta.setColumnDisplaySize(7, 512);
         
-        meta.setColumnName(8, "nResvOrdr");
-        meta.setColumnLabel(8, "nResvOrdr");
-        meta.setColumnType(8, Types.INTEGER);
+        meta.setColumnName(8, "xBarCodex");
+        meta.setColumnLabel(8, "xBarCodex");
+        meta.setColumnType(8, Types.VARCHAR);
         
-        meta.setColumnName(9, "nBackOrdr");
-        meta.setColumnLabel(9, "nBackOrdr");
-        meta.setColumnType(9, Types.INTEGER);
+        meta.setColumnName(9, "xDescript");
+        meta.setColumnLabel(9, "xDescript");
+        meta.setColumnType(9, Types.VARCHAR);
         
-        meta.setColumnName(10, "nOnTranst");
-        meta.setColumnLabel(10, "nOnTranst");
+        meta.setColumnName(10, "xQtyOnHnd");
+        meta.setColumnLabel(10, "xQtyOnHnd");
         meta.setColumnType(10, Types.INTEGER);
         
-        meta.setColumnName(11, "nAvgMonSl");
-        meta.setColumnLabel(11, "nAvgMonSl");
-        meta.setColumnType(11, Types.INTEGER);
+        meta.setColumnName(11, "xBrandCde");
+        meta.setColumnLabel(11, "xBrandCde");
+        meta.setColumnType(11, Types.VARCHAR);
         
-        meta.setColumnName(12, "nMaxLevel");
-        meta.setColumnLabel(12, "nMaxLevel");
-        meta.setColumnType(12, Types.INTEGER);
+        meta.setColumnName(12, "xModelCde");
+        meta.setColumnLabel(12, "xModelCde");
+        meta.setColumnType(12, Types.VARCHAR);
         
-        meta.setColumnName(13, "nApproved");
-        meta.setColumnLabel(13, "nApproved");
-        meta.setColumnType(13, Types.INTEGER);
-        
-        meta.setColumnName(14, "nCancelld");
-        meta.setColumnLabel(14, "nCancelld");
-        meta.setColumnType(14, Types.INTEGER);
-        
-        meta.setColumnName(15, "nIssueQty");
-        meta.setColumnLabel(15, "nIssueQty");
-        meta.setColumnType(15, Types.INTEGER);
-        
-        meta.setColumnName(16, "nOrderQty");
-        meta.setColumnLabel(16, "nOrderQty");
-        meta.setColumnType(16, Types.INTEGER);
-        
-        meta.setColumnName(17, "nAllocQty");
-        meta.setColumnLabel(17, "nAllocQty");
-        meta.setColumnType(17, Types.INTEGER);
-        
-        meta.setColumnName(18, "nReceived");
-        meta.setColumnLabel(18, "nReceived");
-        meta.setColumnType(18, Types.INTEGER);
-        
-        meta.setColumnName(19, "sNotesxxx");
-        meta.setColumnLabel(19, "sNotesxxx");
-        meta.setColumnType(19, Types.VARCHAR);
-        meta.setColumnDisplaySize(19, 256);
-        
-        meta.setColumnName(20, "xBarCodex");
-        meta.setColumnLabel(20, "xBarCodex");
-        meta.setColumnType(20, Types.VARCHAR);
-        
-        meta.setColumnName(21, "xDescript");
-        meta.setColumnLabel(21, "xDescript");
-        meta.setColumnType(21, Types.VARCHAR);
-        
-        meta.setColumnName(22, "xQtyOnHnd");
-        meta.setColumnLabel(22, "xQtyOnHnd");
-        meta.setColumnType(22, Types.INTEGER);
-        
-        meta.setColumnName(23, "xBrandCde");
-        meta.setColumnLabel(23, "xBrandCde");
-        meta.setColumnType(23, Types.VARCHAR);
-        
-        meta.setColumnName(24, "xModelCde");
-        meta.setColumnLabel(24, "xModelCde");
-        meta.setColumnType(24, Types.VARCHAR);
-        
-        meta.setColumnName(25, "xColorCde");
-        meta.setColumnLabel(25, "xColorCde");
-        meta.setColumnType(25, Types.VARCHAR);
+        meta.setColumnName(13, "xColorCde");
+        meta.setColumnLabel(13, "xColorCde");
+        meta.setColumnType(13, Types.VARCHAR);
 
         p_oDetail = new CachedRowSetImpl();
         p_oDetail.setMetaData(meta);
@@ -1246,7 +1202,7 @@ public class InvRequest implements XMasDetTrans{
     }
     
     public void displayMasFields() throws SQLException{
-        if (p_nEditMode != EditMode.ADDNEW && p_nEditMode != EditMode.UPDATE) return;
+        if (p_nEditMode != EditMode.ADDNEW) return;
         
         int lnRow = p_oMaster.getMetaData().getColumnCount();
         
@@ -1271,7 +1227,7 @@ public class InvRequest implements XMasDetTrans{
     }
     
     public void displayDetFields() throws SQLException{
-        if (p_nEditMode != EditMode.ADDNEW && p_nEditMode != EditMode.UPDATE) return;
+        if (p_nEditMode != EditMode.ADDNEW) return;
         
         int lnRow = p_oDetail.getMetaData().getColumnCount();
         
@@ -1328,16 +1284,9 @@ public class InvRequest implements XMasDetTrans{
                     
                     p_oDetail.absolute(fnRow);
                     p_oDetail.updateObject("sStockIDx", (String) loJSON.get("sStockIDx"));
-                    p_oDetail.updateObject("nQuantity", Integer.parseInt(String.valueOf(p_oDetail.getObject("nQuantity"))) + 1);
-                    
-                    p_oDetail.updateObject("cClassify", (String) loJSON.get("cClassify"));
-                    p_oDetail.updateObject("nRecOrder", 0);
-                    p_oDetail.updateObject("nQtyOnHnd", Integer.parseInt(String.valueOf(loJSON.get("nQtyOnHnd"))));
-                    p_oDetail.updateObject("nResvOrdr", Integer.parseInt(String.valueOf(loJSON.get("nResvOrdr"))));
-                    p_oDetail.updateObject("nBackOrdr", Integer.parseInt(String.valueOf(loJSON.get("nBackOrdr"))));
-                    p_oDetail.updateObject("nOnTranst", 0);
-                    p_oDetail.updateObject("nAvgMonSl", Integer.parseInt(String.valueOf(loJSON.get("nAvgMonSl"))));
-                    p_oDetail.updateObject("nMaxLevel", Integer.parseInt(String.valueOf(loJSON.get("nMaxLevel"))));
+                    p_oDetail.updateObject("nCredtQty", 0);
+                    p_oDetail.updateObject("nDebitQty", 0);
+                    p_oDetail.updateObject("nInvCostx", Double.valueOf(String.valueOf(loJSON.get("nUnitPrce"))));
                     
                     p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xBarCodex"), (String) loJSON.get("sBarCodex"));
                     p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xDescript"), (String) loJSON.get("sDescript"));
@@ -1351,8 +1300,100 @@ public class InvRequest implements XMasDetTrans{
                     
                     if (p_oListener != null) p_oListener.DetailRetreive(fnRow, MiscUtil.getColumnIndex(p_oDetail, "xBarCodex"), getDetail(fnRow, "xBarCodex"));
                     if (p_oListener != null) p_oListener.DetailRetreive(fnRow, MiscUtil.getColumnIndex(p_oDetail, "xDescript"), getDetail(fnRow, "xDescript"));
-                    if (p_oListener != null) p_oListener.DetailRetreive(fnRow, MiscUtil.getColumnIndex(p_oDetail, "nQuantity"), getDetail(fnRow, "nQuantity"));
+                    if (p_oListener != null) p_oListener.DetailRetreive(fnRow, MiscUtil.getColumnIndex(p_oDetail, "nCredtQty"), getDetail(fnRow, "nCredtQty"));
+                    if (p_oListener != null) p_oListener.DetailRetreive(fnRow, MiscUtil.getColumnIndex(p_oDetail, "nDebitQty"), getDetail(fnRow, "nDebitQty"));
                 }
         }
+    }
+    
+    private void refreshDetail() throws ParseException, SQLException{
+        JSONObject loJSON;
+        JSONParser loParser = new JSONParser();
+        
+        for (int lnCtr = 1; lnCtr <= getItemCount(); lnCtr ++){
+            if ("".equals((String) getDetail(lnCtr, "sStockIDx"))) break;
+            
+            loJSON = searchStocks("a.sStockIDx", (String) getDetail(lnCtr, "sStockIDx"), true);
+            
+            if ("success".equals((String) loJSON.get("result"))){
+                loJSON = (JSONObject) ((JSONArray) loParser.parse((String) loJSON.get("payload"))).get(0);
+                
+                p_oDetail.absolute(lnCtr);
+                p_oDetail.updateObject("nInvCostx", Double.valueOf(String.valueOf(loJSON.get("nUnitPrce"))));
+
+                p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xBarCodex"), (String) loJSON.get("sBarCodex"));
+                p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xDescript"), (String) loJSON.get("sDescript"));
+                p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xQtyOnHnd"), Integer.parseInt(String.valueOf(loJSON.get("nQtyOnHnd"))));
+                p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xBrandCde"), (String) loJSON.get("sBrandCde"));
+                p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xModelCde"), (String) loJSON.get("sModelCde"));
+                p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xColorCde"), (String) loJSON.get("sColorCde")); 
+
+                p_oDetail.updateRow();   
+            }
+        }
+    }
+    
+    private boolean saveInvTrans() throws SQLException{
+        InvTrans loTrans = new InvTrans(p_oNautilus, p_sBranchCd);
+        int lnRow = getItemCount();
+        boolean lbHasRecord;
+        
+        if (loTrans.InitTransaction()){
+            p_oMaster.first();
+            
+            lbHasRecord = false;
+            for (int lnCtr = 0; lnCtr <= lnRow-1; lnCtr++){
+                p_oDetail.absolute(lnCtr + 1);
+                if (p_oDetail.getInt("nDebitQty") > 0){
+                    loTrans.setMaster(lnCtr, "sStockIDx", p_oDetail.getString("sStockIDx"));
+                    loTrans.setMaster(lnCtr, "nQuantity", p_oDetail.getInt("nDebitQty"));
+                    
+                    lbHasRecord = true;
+                }
+            }
+            
+            if (lbHasRecord){
+                if (!loTrans.DebitMemo(p_oMaster.getString("sTransNox"), 
+                                        p_oMaster.getDate("dTransact"), 
+                                        EditMode.ADDNEW)){
+                    setMessage(loTrans.getMessage());
+                    return false;
+                }
+            }            
+        } else {
+            setMessage(loTrans.getMessage());
+            return false;
+        }
+        
+        if (loTrans.InitTransaction()){
+            p_oMaster.first();
+            
+            lbHasRecord = false;
+            for (int lnCtr = 0; lnCtr <= lnRow-1; lnCtr++){
+                p_oDetail.absolute(lnCtr + 1);
+                if (p_oDetail.getInt("nCredtQty") > 0){
+                    loTrans.setMaster(lnCtr, "sStockIDx", p_oDetail.getString("sStockIDx"));
+                    loTrans.setMaster(lnCtr, "nQuantity", p_oDetail.getInt("nCredtQty"));
+                    
+                    lbHasRecord = true;
+                }
+            }
+            
+            if (lbHasRecord){
+                if (!loTrans.CreditMemo(p_oMaster.getString("sTransNox"), 
+                                        p_oMaster.getDate("dTransact"), 
+                                        EditMode.ADDNEW)){
+                    setMessage(loTrans.getMessage());
+                    return false;
+                }
+            }
+            
+            
+        } else {
+            setMessage(loTrans.getMessage());
+            return false;
+        }
+        
+        return true;
     }
 }

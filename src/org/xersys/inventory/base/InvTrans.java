@@ -75,7 +75,7 @@ public class InvTrans {
                 case "nquantity":
                     p_oMaster.updateInt("nQuantity", (int) fsValue);
                     p_oMaster.updateRow(); break;
-                case "nqtyonhand":
+                case "nqtyonhnd":
                     p_oMaster.updateInt("nQtyOnHnd", (int) fsValue);
                     p_oMaster.updateRow(); break;
                 case "nbackordr":
@@ -343,6 +343,7 @@ public class InvTrans {
                         break;
                     case InvConstants.SALES:
                     case InvConstants.JOB_ORDER:
+                    case InvConstants.DELIVERY:
                         p_oProcsd.updateInt("nQtyOutxx", p_oProcsd.getInt("nQtyOutxx") + p_oMaster.getInt("nQuantity"));
                         
                         if (p_oMaster.getString("sSupersed").isEmpty())
@@ -351,9 +352,14 @@ public class InvTrans {
                     case InvConstants.SALES_RETURN:
                         p_oProcsd.updateInt("nQtyInxxx", p_oProcsd.getInt("nQtyInxxx") + p_oMaster.getInt("nQuantity"));
                         break;
-                    
-                        
+                    case InvConstants.CREDIT_MEMO:
+                        p_oProcsd.updateInt("nQtyOutxx", p_oProcsd.getInt("nQtyOutxx") + p_oMaster.getInt("nQuantity"));
+                        break;
+                    case InvConstants.DEBIT_MEMO:
+                        p_oProcsd.updateInt("nQtyInxxx", p_oProcsd.getInt("nQtyInxxx") + p_oMaster.getInt("nQuantity"));
+                        break;
                 }
+                
                 //commit update
                 p_oProcsd.updateRow();
                 
@@ -450,10 +456,11 @@ public class InvTrans {
                     if (loMaster.NewRecord()){
                         loMaster.setMaster("sStockIDx", p_oProcsd.getString("sStockIDx"));
                         loMaster.setMaster("nQtyOnHnd", p_oProcsd.getInt("nQtyInxxx"));
+                        loMaster.setMaster("nBegQtyxx", p_oProcsd.getInt("nQtyInxxx"));
                         loMaster.setMaster("nBackOrdr", lnBackOrdr);
                         loMaster.setMaster("nResvOrdr", lnResvOrdr);
                         loMaster.setMaster("dBegInvxx", p_dTransact);
-                        
+
                         if (p_oProcsd.getInt("nQtyInxxx") > 0) loMaster.setMaster("dAcquired", p_dTransact);
                         
                         if (!loMaster.SaveRecord()) {
