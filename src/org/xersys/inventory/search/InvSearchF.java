@@ -424,8 +424,9 @@ public class InvSearchF implements iSearch{
                 
                 _fields.add("sBarCodex"); _fields_descript.add("Bar Code");
                 _fields.add("sDescript"); _fields_descript.add("Description");
-                _fields.add("nQtyOnHnd"); _fields_descript.add("On Hand");
                 _fields.add("sBrandCde"); _fields_descript.add("Brand");
+                _fields.add("nQtyOnHnd"); _fields_descript.add("On Hand");
+                _fields.add("nSelPrce1"); _fields_descript.add("SRP");
                 break;
             case searchStocksWithOtherInfo:
                 _filter_list.add("a.sBrandCde"); _filter_description.add("Brand Code");
@@ -437,6 +438,7 @@ public class InvSearchF implements iSearch{
                 _fields.add("sBarCodex"); _fields_descript.add("Bar Code");
                 _fields.add("sDescript"); _fields_descript.add("Description");
                 _fields.add("nQtyOnHnd"); _fields_descript.add("On Hand");
+                _fields.add("nSelPrce1"); _fields_descript.add("SRP");
                 _fields.add("sBrandCde"); _fields_descript.add("Brand");
                 _fields.add("sModelCde"); _fields_descript.add("Model");
                 _fields.add("sColorCde"); _fields_descript.add("Color");
@@ -450,8 +452,9 @@ public class InvSearchF implements iSearch{
                 
                 _fields.add("sBarCodex"); _fields_descript.add("Bar Code");
                 _fields.add("sDescript"); _fields_descript.add("Description");
-                _fields.add("nQtyOnHnd"); _fields_descript.add("On Hand");
                 _fields.add("sBrandCde"); _fields_descript.add("Brand");
+                _fields.add("nQtyOnHnd"); _fields_descript.add("On Hand");
+                _fields.add("nSelPrce1"); _fields_descript.add("SRP");
                 break;
             case searchBranchStocksWithOtherInfo:
                 _filter_list.add("a.sBrandCde"); _filter_description.add("Brand Code");
@@ -463,6 +466,7 @@ public class InvSearchF implements iSearch{
                 _fields.add("sBarCodex"); _fields_descript.add("Bar Code");
                 _fields.add("sDescript"); _fields_descript.add("Description");
                 _fields.add("nQtyOnHnd"); _fields_descript.add("On Hand");
+                _fields.add("sBrandCde"); _fields_descript.add("Brand");
                 _fields.add("sBrandCde"); _fields_descript.add("Brand");
                 _fields.add("sModelCde"); _fields_descript.add("Model");
                 _fields.add("sColorCde"); _fields_descript.add("Color");
@@ -479,11 +483,6 @@ public class InvSearchF implements iSearch{
                 _fields.add("sSerialID"); _fields_descript.add("ID");
                 _fields.add("sSerial01"); _fields_descript.add("Engine No.");
                 _fields.add("sSerial02"); _fields_descript.add("Frame No.");
-//                _fields.add("xBrandNme"); _fields_descript.add("Brand");
-//                _fields.add("xModelNme"); _fields_descript.add("Model");
-//
-//                _filter_list.add("c.sDescript"); _filter_description.add("Brand");
-//                _filter_list.add("d.sDescript"); _filter_description.add("Model");
                 break;
             case searchSPInvRequest:
             case searchSPInvAdjustment:
