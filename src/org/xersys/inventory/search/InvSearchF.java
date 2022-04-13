@@ -421,6 +421,7 @@ public class InvSearchF implements iSearch{
                 _filter_list.add("a.sColorCde"); _filter_description.add("Color Code");
                 _filter_list.add("a.sInvTypCd"); _filter_description.add("Inv. Type Code");
                 _filter_list.add("a.sModelCde"); _filter_description.add("Model Code");
+                _filter_list.add("a.sSupplier"); _filter_description.add("Supplier");
                 
                 _fields.add("sBarCodex"); _fields_descript.add("Bar Code");
                 _fields.add("sDescript"); _fields_descript.add("Description");
@@ -434,6 +435,7 @@ public class InvSearchF implements iSearch{
                 _filter_list.add("a.sColorCde"); _filter_description.add("Color Code");
                 _filter_list.add("a.sInvTypCd"); _filter_description.add("Inv. Type Code");
                 _filter_list.add("a.sModelCde"); _filter_description.add("Model Code");
+                _filter_list.add("a.sSupplier"); _filter_description.add("Supplier");
                 
                 _fields.add("sBarCodex"); _fields_descript.add("Bar Code");
                 _fields.add("sDescript"); _fields_descript.add("Description");
@@ -449,6 +451,7 @@ public class InvSearchF implements iSearch{
                 _filter_list.add("a.sColorCde"); _filter_description.add("Color Code");
                 _filter_list.add("a.sInvTypCd"); _filter_description.add("Inv. Type Code");
                 _filter_list.add("a.sModelCde"); _filter_description.add("Model Code");
+                _filter_list.add("a.sSupplier"); _filter_description.add("Supplier");
                 
                 _fields.add("sBarCodex"); _fields_descript.add("Bar Code");
                 _fields.add("sDescript"); _fields_descript.add("Description");
@@ -462,6 +465,7 @@ public class InvSearchF implements iSearch{
                 _filter_list.add("a.sColorCde"); _filter_description.add("Color Code");
                 _filter_list.add("a.sInvTypCd"); _filter_description.add("Inv. Type Code");
                 _filter_list.add("a.sModelCde"); _filter_description.add("Model Code");
+                _filter_list.add("a.sSupplier"); _filter_description.add("Supplier");
                 
                 _fields.add("sBarCodex"); _fields_descript.add("Bar Code");
                 _fields.add("sDescript"); _fields_descript.add("Description");
@@ -545,6 +549,7 @@ public class InvSearchF implements iSearch{
                     ", IFNULL(a.sModelCde, '') sModelCde" +
                     ", IFNULL(a.sColorCde, '') sColorCde" +
                     ", IFNULL(a.sInvTypCd, '') sInvTypCd" +
+                    ", a.sSupplier" +
                     ", a.nUnitPrce" +
                     ", a.nSelPrce1" +
                     ", a.cComboInv" +
@@ -586,6 +591,7 @@ public class InvSearchF implements iSearch{
                     ", IFNULL(a.sModelCde, '') sModelCde" +
                     ", IFNULL(a.sColorCde, '') sColorCde" +
                     ", IFNULL(a.sInvTypCd, '') sInvTypCd" +
+                    ", a.sSupplier" +
                     ", a.nUnitPrce" +
                     ", a.nSelPrce1" +
                     ", a.cComboInv" +
