@@ -163,6 +163,10 @@ public class Inventory implements XRecord{
                     if (!p_oInvMaster.SaveRecord()){
                         setMessage(p_oInvMaster.getMessage());
                     }
+                } else {
+                    if (!p_oInvMaster.SaveRecord()){
+                        setMessage(p_oInvMaster.getMessage());
+                    }
                 }
             }
             

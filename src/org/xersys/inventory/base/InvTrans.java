@@ -152,6 +152,17 @@ public class InvTrans {
         return saveTransaction();
     }
     
+    public boolean JobOrder(String fsSourceNo,
+                                Date fdTransDate,
+                                int fnUpdateMode){        
+        p_sSourceCd = InvConstants.JOB_ORDER;
+        p_sSourceNo = fsSourceNo;
+        p_dTransact = fdTransDate;
+        p_nEditMode = fnUpdateMode;
+        
+        return saveTransaction();
+    }
+    
     public boolean WholeSale(String fsSourceNo,
                                 Date fdTransDate,
                                 int fnUpdateMode){        

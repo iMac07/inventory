@@ -6,6 +6,10 @@ import java.sql.SQLException;
 import javax.sql.rowset.CachedRowSet;
 import javax.sql.rowset.RowSetFactory;
 import javax.sql.rowset.RowSetProvider;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 import org.xersys.commander.contants.EditMode;
 import org.xersys.commander.contants.RecordStatus;
 import org.xersys.commander.iface.XNautilus;
@@ -13,6 +17,7 @@ import org.xersys.commander.iface.XRecord;
 import org.xersys.commander.util.MiscUtil;
 import org.xersys.commander.util.SQLUtil;
 import org.xersys.commander.util.StringUtil;
+import org.xersys.parameters.search.ParamSearchF;
 
 public class InvMaster implements XRecord{    
     private final String MASTER_TABLE = "Inv_Master";
@@ -29,10 +34,14 @@ public class InvMaster implements XRecord{
     
     private CachedRowSet p_oMaster;
     
+    private final ParamSearchF p_oInvLocation;
+    
     public InvMaster(XNautilus foNautilus, String fsBranchCd, boolean fbWithParent){
         p_oNautilus = foNautilus;
         p_sBranchCd = fsBranchCd;
         p_bWithParent = fbWithParent;
+        
+        p_oInvLocation = new ParamSearchF(p_oNautilus, ParamSearchF.SearchType.searchInvLocation);
         
         p_nEditMode = EditMode.UNKNOWN;
     }
@@ -93,9 +102,9 @@ public class InvMaster implements XRecord{
             
             if (p_nEditMode == EditMode.ADDNEW){                
                 setMaster("nQtyOnHnd", p_oMaster.getObject("nBegQtyxx"));
-                lsSQL = MiscUtil.rowset2SQL(p_oMaster, MASTER_TABLE, "");
+                lsSQL = MiscUtil.rowset2SQL(p_oMaster, MASTER_TABLE, "xLocatnNm");
             } else {                
-                lsSQL = MiscUtil.rowset2SQL(p_oMaster, MASTER_TABLE, "", 
+                lsSQL = MiscUtil.rowset2SQL(p_oMaster, MASTER_TABLE, "xLocatnNm", 
                             "sStockIDx = " + SQLUtil.toSQL(p_oMaster.getString("sStockIDx")) +
                                 " AND sBranchCd = " + SQLUtil.toSQL(p_sBranchCd));
             }
@@ -232,6 +241,9 @@ public class InvMaster implements XRecord{
         
         try {
             switch (fsFieldNm){
+                case "sLocatnCd":
+                    getInvLocation((String) foValue);
+                    break;
                 case "nBinNumbr":
                 case "nBegQtyxx":
                 case "nQtyOnHnd":
@@ -281,26 +293,28 @@ public class InvMaster implements XRecord{
     
     private String getSQ_Master(){
         return "SELECT" +
-                    "  sStockIDx" +
-                    ", sBranchCd" +
-                    ", sLocatnCd" +
-                    ", nBinNumbr" +
-                    ", dAcquired" +
-                    ", dBegInvxx" +
-                    ", nBegQtyxx" +
-                    ", nQtyOnHnd" +
-                    ", nMinLevel" +
-                    ", nMaxLevel" +
-                    ", nAvgMonSl" +
-                    ", nAvgCostx" +
-                    ", cClassify" +
-                    ", nBackOrdr" +
-                    ", nResvOrdr" +
-                    ", nFloatQty" +
-                    ", cRecdStat" +
-                    ", dDeactive" +
-                    ", dModified" +
-                " FROM " + MASTER_TABLE;
+                    "  a.sStockIDx" +
+                    ", a.sBranchCd" +
+                    ", a.sLocatnCd" +
+                    ", a.nBinNumbr" +
+                    ", a.dAcquired" +
+                    ", a.dBegInvxx" +
+                    ", a.nBegQtyxx" +
+                    ", a.nQtyOnHnd" +
+                    ", a.nMinLevel" +
+                    ", a.nMaxLevel" +
+                    ", a.nAvgMonSl" +
+                    ", a.nAvgCostx" +
+                    ", a.cClassify" +
+                    ", a.nBackOrdr" +
+                    ", a.nResvOrdr" +
+                    ", a.nFloatQty" +
+                    ", a.cRecdStat" +
+                    ", a.dDeactive" +
+                    ", a.dModified" +
+                    ", IFNULL(b.sBriefDsc, '') xLocatnNm" +
+                " FROM " + MASTER_TABLE + " a" +
+                    " LEFT JOIN Inv_Location b ON a.sLocatnCd = b.sLocatnCd";
     }
     
     private void addMaster() throws SQLException{
@@ -326,5 +340,56 @@ public class InvMaster implements XRecord{
     @Override
     public void setMaster(int fnIndex, Object foValue) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+    
+    public JSONObject searchInvLocation(String fsKey, Object foValue, boolean fbExact){
+        p_oInvLocation.setKey(fsKey);
+        p_oInvLocation.setValue(foValue);
+        p_oInvLocation.setExact(fbExact);
+        
+        return p_oInvLocation.Search();
+    }
+    
+    public ParamSearchF getSearchInvLocation(){
+        return p_oInvLocation;
+    }
+    
+    private void getInvLocation(String foValue){
+        String lsProcName = this.getClass().getSimpleName() + ".getInvType()";
+        
+        JSONObject loJSON = searchInvLocation("sLocatnCd", foValue, true);
+        if ("success".equals((String) loJSON.get("result"))){
+            try {
+                JSONParser loParser = new JSONParser();
+
+                p_oMaster.first();
+                try {
+                    JSONArray loArray = (JSONArray) loParser.parse((String) loJSON.get("payload"));
+
+                    switch (loArray.size()){
+                        case 0:
+                            p_oMaster.updateObject("sLocatnCd", "");
+                            p_oMaster.updateObject("xLocatnNm", "");
+                            p_oMaster.updateRow();
+                            break;
+                        default:
+                            loJSON = (JSONObject) loArray.get(0);
+                            p_oMaster.updateObject("sLocatnCd", (String) loJSON.get("sLocatnCd"));
+                            p_oMaster.updateObject("xLocatnNm", (String) loJSON.get("sBriefDsc"));
+                            p_oMaster.updateRow();
+                    }
+                } catch (ParseException ex) {
+                    ex.printStackTrace();
+                    p_oListener.MasterRetreive("sLocatnCd", "");
+                    p_oListener.MasterRetreive("xLocatnNm", "");
+                    p_oMaster.updateRow();
+                }
+
+                if (p_oListener != null) p_oListener.MasterRetreive("sLocatnCd", (String) getMaster("xLocatnNm"));
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+                setMessage("SQLException on " + lsProcName + ". Please inform your System Admin.");
+            }
+        }
     }
 }
