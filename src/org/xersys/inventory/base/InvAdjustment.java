@@ -16,9 +16,12 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+import org.xersys.commander.contants.AccessLevel;
 import org.xersys.commander.contants.EditMode;
 import org.xersys.commander.contants.RecordStatus;
 import org.xersys.commander.contants.TransactionStatus;
+import org.xersys.commander.contants.UserLevel;
+import org.xersys.commander.iface.LApproval;
 import org.xersys.commander.iface.LMasDetTrans;
 import org.xersys.commander.iface.XMasDetTrans;
 import org.xersys.commander.iface.XNautilus;
@@ -43,6 +46,7 @@ public class InvAdjustment implements XMasDetTrans{
     private boolean p_bWithUI;
     
     private String p_sOrderNox;
+    private LApproval p_oApproval;
     
     private String p_sMessagex;
     
@@ -87,6 +91,10 @@ public class InvAdjustment implements XMasDetTrans{
     @Override
     public void setListener(LMasDetTrans foValue) {
         p_oListener = foValue;
+    }
+    
+    public void setApprvListener(LApproval foValue){
+        p_oApproval = foValue;
     }
 
     @Override
@@ -599,6 +607,15 @@ public class InvAdjustment implements XMasDetTrans{
                 p_nEditMode  = EditMode.UNKNOWN;
                 return true;
             }
+            
+            //check if user is allowed
+            if (!p_oNautilus.isUserAuthorized(p_oApproval, 
+                    UserLevel.MANAGER + UserLevel.SUPERVISOR + UserLevel.OWNER, 
+                    AccessLevel.INVENTORY)){
+                setMessage(System.getProperty("sMessagex"));
+                System.setProperty("sMessagex", "");
+                return false;
+            }
 
             lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                         "  cTranStat = " + TransactionStatus.STATE_CANCELLED +
@@ -643,6 +660,15 @@ public class InvAdjustment implements XMasDetTrans{
             
             if ((TransactionStatus.STATE_POSTED).equals(loRS.getString("cTranStat"))){
                 setMessage("Unable to delete already posted transactions.");
+                return false;
+            }
+            
+            //check if user is allowed
+            if (!p_oNautilus.isUserAuthorized(p_oApproval, 
+                    UserLevel.MANAGER + UserLevel.SUPERVISOR + UserLevel.OWNER, 
+                    AccessLevel.INVENTORY)){
+                setMessage(System.getProperty("sMessagex"));
+                System.setProperty("sMessagex", "");
                 return false;
             }
 
@@ -711,6 +737,15 @@ public class InvAdjustment implements XMasDetTrans{
 
             if (!(TransactionStatus.STATE_CLOSED).equals(loRS.getString("cTranStat"))){
                 setMessage("Unable to approve unverified transactons.");
+                return false;
+            }
+            
+            //check if user is allowed
+            if (!p_oNautilus.isUserAuthorized(p_oApproval, 
+                    UserLevel.MANAGER + UserLevel.SUPERVISOR + UserLevel.OWNER, 
+                    AccessLevel.INVENTORY)){
+                setMessage(System.getProperty("sMessagex"));
+                System.setProperty("sMessagex", "");
                 return false;
             }
             
