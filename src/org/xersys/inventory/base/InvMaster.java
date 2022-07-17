@@ -96,6 +96,8 @@ public class InvMaster implements XRecord{
         String lsSQL = "";
 
         try {
+            if (!isModified()) return true;
+            
             if (!p_bWithParent) p_oNautilus.beginTrans();
         
             setMaster("dModified", p_oNautilus.getServerDate());
@@ -155,16 +157,7 @@ public class InvMaster implements XRecord{
         System.out.println(this.getClass().getSimpleName() + ".OpenRecord()");
         setMessage("");       
         
-        try {
-//            if (p_oMaster != null){
-//                p_oMaster.first();
-//
-//                if (p_oMaster.getString("sStockIDx").equals(fsValue)){
-//                    p_nEditMode  = EditMode.READY;
-//                    return true;
-//                }
-//            }
-            
+        try {            
             String lsSQL;
             ResultSet loRS;
             
@@ -391,5 +384,18 @@ public class InvMaster implements XRecord{
                 setMessage("SQLException on " + lsProcName + ". Please inform your System Admin.");
             }
         }
+    }
+    
+    public boolean isModified() throws SQLException{
+        if (p_nEditMode == EditMode.ADDNEW)
+            return true;
+        else if (p_nEditMode == EditMode.UPDATE){
+            p_oMaster.first();
+            String lsSQL = MiscUtil.rowset2SQL(p_oMaster, MASTER_TABLE, "xLocatnNm", 
+                            "sStockIDx = " + SQLUtil.toSQL(p_oMaster.getString("sStockIDx")) +
+                                " AND sBranchCd = " + SQLUtil.toSQL(p_sBranchCd));
+            return !lsSQL.isEmpty();
+        } else
+            return false;
     }
 }
