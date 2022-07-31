@@ -346,6 +346,8 @@ public class InvSearchF implements iSearch{
                 lsSQL = MiscUtil.addCondition(getSQ_SP_Inventory_With_PO(), "a.sInvTypCd = 'SP'"); break;
             case searchSPInvTransfer:
                 lsSQL = getSQ_SPInv_Transfer(); break;
+            case searchSPInvPriceChange:
+                lsSQL = getSQ_SPInv_Price_Change(); break;
             default:
                 break;
         }
@@ -493,6 +495,15 @@ public class InvSearchF implements iSearch{
                 _fields.add("sTransNox"); _fields_descript.add("Trans. No.");
                 _fields.add("sRemarksx"); _fields_descript.add("Remarks");
                 _fields.add("dTransact"); _fields_descript.add("Date");
+                _fields.add("sReferNox"); _fields_descript.add("Refer. No.");
+
+                _filter_list.add("sReferNox"); _filter_description.add("Refer. No.");
+                _filter_list.add("cTranStat"); _filter_description.add("Status");
+                break;
+            case searchSPInvPriceChange:
+                _fields.add("sTransNox"); _fields_descript.add("Trans. No.");
+                _fields.add("sRemarksx"); _fields_descript.add("Remarks");
+                _fields.add("dEffectve"); _fields_descript.add("Effectivity");
                 _fields.add("sReferNox"); _fields_descript.add("Refer. No.");
 
                 _filter_list.add("sReferNox"); _filter_description.add("Refer. No.");
@@ -682,6 +693,15 @@ public class InvSearchF implements iSearch{
                 " FROM Inv_Adjustment_Master";
     }
     
+    private String getSQ_SPInv_Price_Change(){
+        return "SELECT" +
+                    "  sTransNox" +
+                    ", sRemarksx" +
+                    ", dEffectve" +
+                    ", sReferNox" +
+                " FROM Price_Change_Master";
+    }
+    
     private String getSQ_SPInv_Transfer(){
         return "SELECT" +
                     "  a.sTransNox" +					
@@ -726,6 +746,7 @@ public class InvSearchF implements iSearch{
         searchSPInvRequestCancel,
         searchSPInventoryWPO,
         searchSPInvTransfer,
-        searchSPInvAdjustment
+        searchSPInvAdjustment,
+        searchSPInvPriceChange
     }
 }
