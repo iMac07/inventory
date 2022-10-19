@@ -102,6 +102,17 @@ public class InvTrans {
         }
     }
     
+    public boolean RetailOrder(String fsSourceNo,
+                                Date fdTransDate,
+                                int fnUpdateMode){        
+        p_sSourceCd = InvConstants.RETAIL_ORDER;
+        p_sSourceNo = fsSourceNo;
+        p_dTransact = fdTransDate;
+        p_nEditMode = fnUpdateMode;
+        
+        return saveTransaction();
+    }
+    
     public boolean PurchaseOrder(String fsSourceNo,
                                 Date fdTransDate,
                                 String fsSupplier,
@@ -145,6 +156,17 @@ public class InvTrans {
                                 Date fdTransDate,
                                 int fnUpdateMode){        
         p_sSourceCd = InvConstants.SALES;
+        p_sSourceNo = fsSourceNo;
+        p_dTransact = fdTransDate;
+        p_nEditMode = fnUpdateMode;
+        
+        return saveTransaction();
+    }
+    
+    public boolean JobOrder(String fsSourceNo,
+                                Date fdTransDate,
+                                int fnUpdateMode){        
+        p_sSourceCd = InvConstants.JOB_ORDER;
         p_sSourceNo = fsSourceNo;
         p_dTransact = fdTransDate;
         p_nEditMode = fnUpdateMode;
@@ -221,9 +243,9 @@ public class InvTrans {
             return false;
         } 
         
-        if (p_nEditMode == EditMode.DELETE) return DeleteTransaction();
-           
         if (!processInventory()) return false;
+        
+        if (p_nEditMode == EditMode.DELETE) return DeleteTransaction();
         
         return saveDetail();
     }
@@ -341,6 +363,9 @@ public class InvTrans {
                     case InvConstants.PURCHASE_RETURN:
                         p_oProcsd.updateInt("nQtyOutxx", p_oProcsd.getInt("nQtyOutxx") + p_oMaster.getInt("nQuantity"));
                         break;
+                    case InvConstants.RETAIL_ORDER:
+                        p_oProcsd.updateInt("nQtyIssue", p_oProcsd.getInt("nQtyIssue") - p_oMaster.getInt("nQuantity"));
+                        break;
                     case InvConstants.SALES:
                     case InvConstants.JOB_ORDER:
                     case InvConstants.DELIVERY:
@@ -441,6 +466,7 @@ public class InvTrans {
                     p_sSourceCd.equals(InvConstants.BRANCH_ORDER) ||
                     p_sSourceCd.equals(InvConstants.BRANCH_ORDER_CONFIRM) ||
                     p_sSourceCd.equals(InvConstants.CUSTOMER_ORDER) ||
+                    p_sSourceCd.equals(InvConstants.RETAIL_ORDER) ||
                     p_sSourceCd.equals(InvConstants.PURCHASE) ||
                     p_sSourceCd.equals(InvConstants.PURCHASE_RECEIVING)){
 
@@ -471,6 +497,8 @@ public class InvTrans {
                 } else {
                     lnQtyOnHnd = p_oProcsd.getInt("nQtyOnHnd") + p_oProcsd.getInt("nQtyInxxx") - p_oProcsd.getInt("nQtyOutxx");
                     lnBackOrdr = p_oProcsd.getInt("nBackOrdr") + p_oProcsd.getInt("nQtyOrder");
+                    System.out.println(p_oProcsd.getInt("nResvOrdr"));
+                    System.out.println(p_oProcsd.getInt("nQtyIssue"));
                     lnResvOrdr = p_oProcsd.getInt("nResvOrdr") - p_oProcsd.getInt("nQtyIssue");
                     
                     if (loMaster.OpenRecord(p_oProcsd.getString("sStockIDx"))){
@@ -483,7 +511,7 @@ public class InvTrans {
                             if (lnResvOrdr < 0)
                                 loMaster.setMaster("nResvOrdr", 0);
                             else
-                                loMaster.setMaster("nResvOrdr", (int) loMaster.getMaster("nResvOrdr") + p_oProcsd.getInt("nQtyIssue"));
+                                loMaster.setMaster("nResvOrdr", (int) loMaster.getMaster("nResvOrdr") - p_oProcsd.getInt("nQtyIssue"));
                                 
                             if (lbActivate) loMaster.setMaster("cRecdStat", RecordStatus.ACTIVE);
 

@@ -6,6 +6,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.sql.Date;
 import java.util.Iterator;
 import javax.sql.RowSetMetaData;
 import javax.sql.rowset.CachedRowSet;
@@ -28,14 +29,14 @@ import org.xersys.commander.iface.XNautilus;
 import org.xersys.commander.util.CommonUtil;
 import org.xersys.commander.util.MiscUtil;
 import org.xersys.commander.util.SQLUtil;
+import org.xersys.commander.util.StringUtil;
 import org.xersys.inventory.search.InvSearchF;
 import org.xersys.lib.pojo.Temp_Transactions;
 
-public class InvAdjustment implements XMasDetTrans{
-    private final String MASTER_TABLE = "Inv_Adjustment_Master";
-    private final String DETAIL_TABLE = "Inv_Adjustment_Detail";
-    private final String SOURCE_CODE = "SPAd";
-    private final String INV_TYPE = "SP";
+public class InvPriceUpdate implements XMasDetTrans{
+    private final String MASTER_TABLE = "Price_Change_Master";
+    private final String DETAIL_TABLE = "Price_Change_Detail";
+    private final String SOURCE_CODE = "SPPU";
     
     private final XNautilus p_oNautilus;
     private final boolean p_bWithParent;
@@ -61,7 +62,7 @@ public class InvAdjustment implements XMasDetTrans{
     
     private ArrayList<Temp_Transactions> p_oTemp;
 
-    public InvAdjustment(XNautilus foNautilus, String fsBranchCd, boolean fbWithParent){
+    public InvPriceUpdate(XNautilus foNautilus, String fsBranchCd, boolean fbWithParent){
         p_bWithUI = true;
         p_oNautilus = foNautilus;
         p_sBranchCd = fsBranchCd;
@@ -69,12 +70,12 @@ public class InvAdjustment implements XMasDetTrans{
         p_nEditMode = EditMode.UNKNOWN;
         
         p_oSearchItem = new InvSearchF(p_oNautilus, InvSearchF.SearchType.searchBranchStocks);
-        p_oSearchTrans = new InvSearchF(p_oNautilus, InvSearchF.SearchType.searchSPInvAdjustment);
+        p_oSearchTrans = new InvSearchF(p_oNautilus, InvSearchF.SearchType.searchSPInvPriceChange);
         
         loadTempTransactions();
     }
     
-    public InvAdjustment(XNautilus foNautilus, String fsBranchCd, boolean fbWithParent, int fnTranStat){
+    public InvPriceUpdate(XNautilus foNautilus, String fsBranchCd, boolean fbWithParent, int fnTranStat){
         p_bWithUI = true;
         p_oNautilus = foNautilus;
         p_sBranchCd = fsBranchCd;
@@ -115,11 +116,12 @@ public class InvAdjustment implements XMasDetTrans{
             switch (fnIndex){
                 case 5: //sReferNox
                 case 6: //sRemarksx
-                case 8: //sSourceNo
-                case 9: //sSourceCd
                     p_oMaster.updateString(fnIndex, (String) foValue);
                     p_oMaster.updateRow();
                     break;
+                case 4: //dEffectve
+                    p_oMaster.updateObject(fnIndex, foValue);
+                    p_oMaster.updateRow();
             }
             
             if (p_oListener != null) p_oListener.MasterRetreive(fnIndex, getMaster(fnIndex));
@@ -177,20 +179,20 @@ public class InvAdjustment implements XMasDetTrans{
                 case 3: //sStockIDx
                     getDetail(fnRow, fnIndex, foValue);                    
                     break;
-                case 4: //nCredtQty
-                case 5: //nDebitQty
-                    if (foValue instanceof Integer){
+                case 4: //nUnitPrce
+                case 5: //nSelPrce1
+                case 6: //nSelPrce2
+                case 7: //nSelPrce3
+                case 8: //nDiscLev1
+                case 9: //nDiscLev2
+                case 10: //nDiscLev3
+                    if (foValue instanceof Double){
                         p_oDetail.absolute(fnRow);
                         p_oDetail.updateObject(fnIndex, foValue);
                         p_oDetail.updateRow();
                     }
                     
                     if (p_oListener != null) p_oListener.DetailRetreive(fnRow, fnIndex, getDetail(fnRow, fnIndex));
-                    break;
-                case 7: //sRemarksx
-                    p_oDetail.absolute(fnRow);
-                    p_oDetail.updateObject(fnIndex, (String) foValue);
-                    p_oDetail.updateRow();
                     break;
             }
 
@@ -283,6 +285,7 @@ public class InvAdjustment implements XMasDetTrans{
             p_oDetail.insertRow();
             p_oDetail.moveToCurrentRow();
         } catch (SQLException e) {
+            e.printStackTrace();
             setMessage(e.getMessage());
             return false;
         }
@@ -386,7 +389,7 @@ public class InvAdjustment implements XMasDetTrans{
                 Connection loConn = getConnection();
 
                 p_oMaster.updateObject("sTransNox", MiscUtil.getNextCode(MASTER_TABLE, "sTransNox", true, loConn, p_sBranchCd));
-                p_oMaster.updateObject("dModified", p_oNautilus.getServerDate());
+                p_oMaster.updateObject("sModified", (String) p_oNautilus.getUserInfo("sUserIDxx"));
                 p_oMaster.updateRow();
                 
                 if (!p_bWithParent) MiscUtil.close(loConn);
@@ -399,7 +402,7 @@ public class InvAdjustment implements XMasDetTrans{
                         p_oDetail.updateObject("sTransNox", p_oMaster.getObject("sTransNox"));
                         p_oDetail.updateObject("nEntryNox", lnCtr);
                     
-                        lsSQL = MiscUtil.rowset2SQL(p_oDetail, DETAIL_TABLE, "xBarCodex;xDescript;xQtyOnHnd;xBrandCde;xModelCde;xColorCde");
+                        lsSQL = MiscUtil.rowset2SQL(p_oDetail, DETAIL_TABLE, "xBarCodex;xDescript;xQtyOnHnd;xBrandCde;xModelCde;xColorCde;xUnitPrce;xSelPrce1");
 
                         if(p_oNautilus.executeUpdate(lsSQL, DETAIL_TABLE, p_sBranchCd, "") <= 0){
                             if(!p_oNautilus.getMessage().isEmpty())
@@ -414,7 +417,7 @@ public class InvAdjustment implements XMasDetTrans{
                     }
                 }
                 
-                lsSQL = MiscUtil.rowset2SQL(p_oMaster, MASTER_TABLE, "xInvTypNm");
+                lsSQL = MiscUtil.rowset2SQL(p_oMaster, MASTER_TABLE, "");
             }
             
             if (lsSQL.equals("")){
@@ -464,23 +467,14 @@ public class InvAdjustment implements XMasDetTrans{
         System.out.println(this.getClass().getSimpleName() + ".OpenTransaction()");
         setMessage("");       
         
-        try {
-//            if (p_oMaster != null){
-//                p_oMaster.first();
-//
-//                if (p_oMaster.getString("sTransNox").equals(fsTransNox)){
-//                    p_nEditMode  = EditMode.READY;
-//                    return true;
-//                }
-//            }
-            
+        try {            
             String lsSQL;
             ResultSet loRS;
             
             RowSetFactory factory = RowSetProvider.newFactory();
             
             //open master record
-            lsSQL = MiscUtil.addCondition(getSQ_Master(), "a.sTransNox = " + SQLUtil.toSQL(fsTransNox));
+            lsSQL = MiscUtil.addCondition(getSQ_Master(), "sTransNox = " + SQLUtil.toSQL(fsTransNox));
             loRS = p_oNautilus.executeQuery(lsSQL);
             p_oMaster = factory.createCachedRowSet();
             p_oMaster.populate(loRS);
@@ -492,12 +486,6 @@ public class InvAdjustment implements XMasDetTrans{
             p_oDetail = factory.createCachedRowSet();
             p_oDetail.populate(loRS);
             MiscUtil.close(loRS);
-            
-            
-            if ((int) getMaster("nEntryNox") != getItemCount()){
-                setMessage("Transaction discrepancy detected.");
-                return false;
-            }
             
             if (p_oMaster.size() == 1) {                            
                 p_nEditMode  = EditMode.READY;
@@ -532,7 +520,7 @@ public class InvAdjustment implements XMasDetTrans{
             
             //re-open the transaction assuming the possibility of multiple PC loading of txs
             String lsSQL = MiscUtil.addCondition(getSQ_Master(), 
-                                "a.sTransNox = " + SQLUtil.toSQL(getMaster("sTransNox")));
+                                "sTransNox = " + SQLUtil.toSQL(getMaster("sTransNox")));
             ResultSet loRS = p_oNautilus.executeQuery(lsSQL);
             
             if (!loRS.next()){
@@ -555,11 +543,19 @@ public class InvAdjustment implements XMasDetTrans{
                 return true;
             }
             
+            //check if user is allowed
+            if (!p_oNautilus.isUserAuthorized(p_oApproval, 
+                    UserLevel.MANAGER + UserLevel.OWNER + UserLevel.MASTER, 
+                    AccessLevel.INVENTORY)){
+                setMessage(System.getProperty("sMessagex"));
+                System.setProperty("sMessagex", "");
+                return false;
+            }
+            
             lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
-                        "  sVerified = " + SQLUtil.toSQL((String) p_oNautilus.getUserInfo("sUserIDxx")) +
-                        ", dVerified= " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
+                        "  sApproved = " + SQLUtil.toSQL((String) p_oNautilus.getUserInfo("sUserIDxx")) +
+                        ", dApproved= " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                         ", cTranStat = " + TransactionStatus.STATE_CLOSED +
-                        ", dModified= " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                     " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));
 
             if (p_oNautilus.executeUpdate(lsSQL, MASTER_TABLE, p_sBranchCd, "") <= 0){
@@ -590,7 +586,7 @@ public class InvAdjustment implements XMasDetTrans{
             
             //re-open the transaction assuming the possibility of multiple PC loading of txs
             String lsSQL = MiscUtil.addCondition(getSQ_Master(), 
-                                "a.sTransNox = " + SQLUtil.toSQL(getMaster("sTransNox")));
+                                "sTransNox = " + SQLUtil.toSQL(getMaster("sTransNox")));
             ResultSet loRS = p_oNautilus.executeQuery(lsSQL);
             
             if (!loRS.next()){
@@ -610,7 +606,7 @@ public class InvAdjustment implements XMasDetTrans{
             
             //check if user is allowed
             if (!p_oNautilus.isUserAuthorized(p_oApproval, 
-                    UserLevel.MANAGER + UserLevel.SUPERVISOR + UserLevel.OWNER, 
+                    UserLevel.MANAGER + UserLevel.OWNER + UserLevel.MASTER,
                     AccessLevel.INVENTORY)){
                 setMessage(System.getProperty("sMessagex"));
                 System.setProperty("sMessagex", "");
@@ -619,7 +615,6 @@ public class InvAdjustment implements XMasDetTrans{
 
             lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
                         "  cTranStat = " + TransactionStatus.STATE_CANCELLED +
-                        ", dModified= " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
                     " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));
 
             if (p_oNautilus.executeUpdate(lsSQL, MASTER_TABLE, p_sBranchCd, "") <= 0){
@@ -650,7 +645,7 @@ public class InvAdjustment implements XMasDetTrans{
             
             //re-open the transaction assuming the possibility of multiple PC loading of txs
             String lsSQL = MiscUtil.addCondition(getSQ_Master(), 
-                                "a.sTransNox = " + SQLUtil.toSQL(getMaster("sTransNox")));
+                                "sTransNox = " + SQLUtil.toSQL(getMaster("sTransNox")));
             ResultSet loRS = p_oNautilus.executeQuery(lsSQL);
             
             if (!loRS.next()){
@@ -665,7 +660,7 @@ public class InvAdjustment implements XMasDetTrans{
             
             //check if user is allowed
             if (!p_oNautilus.isUserAuthorized(p_oApproval, 
-                    UserLevel.MANAGER + UserLevel.SUPERVISOR + UserLevel.OWNER, 
+                    UserLevel.MANAGER + UserLevel.OWNER, 
                     AccessLevel.INVENTORY)){
                 setMessage(System.getProperty("sMessagex"));
                 System.setProperty("sMessagex", "");
@@ -717,7 +712,7 @@ public class InvAdjustment implements XMasDetTrans{
             
             //re-open the transaction assuming the possibility of multiple PC loading of txs
             String lsSQL = MiscUtil.addCondition(getSQ_Master(), 
-                                "a.sTransNox = " + SQLUtil.toSQL(getMaster("sTransNox")));
+                                "sTransNox = " + SQLUtil.toSQL(getMaster("sTransNox")));
             ResultSet loRS = p_oNautilus.executeQuery(lsSQL);
             
             if (!loRS.next()){
@@ -742,20 +737,15 @@ public class InvAdjustment implements XMasDetTrans{
             
             //check if user is allowed
             if (!p_oNautilus.isUserAuthorized(p_oApproval, 
-                    UserLevel.MANAGER + UserLevel.SUPERVISOR + UserLevel.OWNER, 
+                    UserLevel.MANAGER + UserLevel.OWNER + UserLevel.MASTER, 
                     AccessLevel.INVENTORY)){
                 setMessage(System.getProperty("sMessagex"));
                 System.setProperty("sMessagex", "");
                 return false;
             }
             
-            if (!saveInvTrans()) return false;
-            
             lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
-                        "  sApproved = " + SQLUtil.toSQL((String) p_oNautilus.getUserInfo("sUserIDxx")) +
-                        ", dApproved= " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
-                        ", cTranStat = " + TransactionStatus.STATE_POSTED +
-                        ", dModified= " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
+                        " cTranStat = " + TransactionStatus.STATE_POSTED +
                     " WHERE sTransNox = " + SQLUtil.toSQL((String) p_oMaster.getObject("sTransNox"));
 
             if (p_oNautilus.executeUpdate(lsSQL, MASTER_TABLE, p_sBranchCd, "") <= 0){
@@ -807,26 +797,17 @@ public class InvAdjustment implements XMasDetTrans{
     
     private String getSQ_Master(){
         return "SELECT" +
-                    "  a.sTransNox" +
-                    ", a.sBranchCd" +
-                    ", a.sInvTypCd" +
-                    ", a.dTransact" +
-                    ", a.sReferNox" +
-                    ", a.sRemarksx" +
-                    ", a.nEntryNox" +
-                    ", a.sSourceNo" +
-                    ", a.sSourceCd" +
-                    ", a.sVerified" +
-                    ", a.dVerified" +
-                    ", a.sApproved" +
-                    ", a.dApproved" +
-                    ", a.cTranStat" +
-                    ", a.dCreatedx" +
-                    ", a.sModified" +
-                    ", a.dModified" +
-                    ", IFNULL(b.sDescript, '') xInvTypNm" +
-                " FROM " + MASTER_TABLE + " a" +
-                    " LEFT JOIN Inv_Type b ON a.sInvTypCd = b.sInvTypCd";
+                    "  sTransNox" +
+                    ", sBranchCd" +
+                    ", dTransact" +
+                    ", dEffectve" +
+                    ", sReferNox" +
+                    ", sRemarksx" +
+                    ", sApproved" +
+                    ", dApproved" +
+                    ", cTranStat" +
+                    ", sModified" +
+                " FROM " + MASTER_TABLE;
     }
     
     private String getSQ_Detail(){
@@ -834,16 +815,21 @@ public class InvAdjustment implements XMasDetTrans{
                     "  a.sTransNox" +
                     ", a.nEntryNox" +
                     ", a.sStockIDx" +
-                    ", a.nCredtQty" +
-                    ", a.nDebitQty" +
-                    ", a.nInvCostx" +
-                    ", a.sRemarksx" +
+                    ", a.nUnitPrce" +
+                    ", a.nSelPrce1" +
+                    ", a.nSelPrce2" +
+                    ", a.nSelPrce3" +
+                    ", a.nDiscLev1" +
+                    ", a.nDiscLev2" +
+                    ", a.nDiscLev3" +
                     ", b.sBarCodex xBarCodex" +
                     ", b.sDescript xDescript" +
                     ", IFNULL(c.nQtyOnHnd, 0) xQtyOnHnd" +
                     ", b.sBrandCde xBrandCde" + 
                     ", b.sModelCde xModelCde" +
                     ", b.sColorCde xColorCde" +
+                    ", b.nUnitPrce xUnitPrce" +
+                    ", b.nSelPrce1 xSelPrce1" +
                 " FROM " + DETAIL_TABLE + " a" +
                     " LEFT JOIN Inventory b" +
                         " LEFT JOIN Inv_Master c" +
@@ -957,8 +943,10 @@ public class InvAdjustment implements XMasDetTrans{
                 if (loMaster.get(lsIndex) != null){
                     switch(lsKey){
                         case "dTransact":
-                        case "dCreatedx":
                             p_oMaster.updateObject(lnKey, SQLUtil.toDate((String) loMaster.get(lsIndex), SQLUtil.FORMAT_TIMESTAMP));
+                            break;
+                         case "dEffectve":
+                            p_oMaster.updateObject(lnKey, SQLUtil.toDate((String) loMaster.get(lsIndex), SQLUtil.FORMAT_SHORT_DATE));
                             break;
                         default:
                             p_oMaster.updateObject(lnKey, loMaster.get(lsIndex));
@@ -1012,9 +1000,6 @@ public class InvAdjustment implements XMasDetTrans{
             p_oDetail.absolute(lnCtr);
             if ("".equals((String) p_oDetail.getObject("sStockIDx"))){
                 p_oDetail.deleteRow();
-            } else if ((int) p_oDetail.getObject("nDebitQty") <= 0 && 
-                (int) p_oDetail.getObject("nCredtQty") <= 0){
-                p_oDetail.deleteRow();
             }
 
             lnCtr = getItemCount();
@@ -1024,21 +1009,10 @@ public class InvAdjustment implements XMasDetTrans{
                 addDetail(); //add detail to prevent error on the next attempt of saving
                 return false;
             }
-            
-            for(lnCtr = 1; lnCtr <= getItemCount(); lnCtr++){
-                if ((int) getDetail(lnCtr, "nCredtQty") <= 0 &&
-                        (int) getDetail(lnCtr, "nDebitQty") <= 0){
-                    setMessage("An item has zero debit and credit quantity.");
-                    return false;
-                }
-            }
 
             //assign values to master record
             p_oMaster.first();
-            p_oMaster.updateObject("sBranchCd", (String) p_oNautilus.getBranchConfig("sBranchCd"));
-            p_oMaster.updateObject("dTransact", p_oNautilus.getServerDate());
-            p_oMaster.updateObject("sInvTypCd", INV_TYPE);      
-            p_oMaster.updateObject("nEntryNox", getItemCount());      
+            p_oMaster.updateObject("sBranchCd", (String) p_oNautilus.getBranchConfig("sBranchCd")); 
 
             String lsSQL = "SELECT dCreatedx FROM xxxTempTransactions" +
                             " WHERE sSourceCd = " + SQLUtil.toSQL(SOURCE_CODE) +
@@ -1046,7 +1020,7 @@ public class InvAdjustment implements XMasDetTrans{
             
             ResultSet loRS = p_oNautilus.executeQuery(lsSQL);
             while (loRS.next()){
-                p_oMaster.updateObject("dCreatedx", loRS.getString("dCreatedx"));
+                p_oMaster.updateObject("dTransact", loRS.getString("dCreatedx"));
             }
             
             MiscUtil.close(loRS);
@@ -1063,7 +1037,7 @@ public class InvAdjustment implements XMasDetTrans{
     private void createMaster() throws SQLException{
         RowSetMetaData meta = new RowSetMetaDataImpl();
 
-        meta.setColumnCount(18);
+        meta.setColumnCount(10);
 
         meta.setColumnName(1, "sTransNox");
         meta.setColumnLabel(1, "sTransNox");
@@ -1074,16 +1048,15 @@ public class InvAdjustment implements XMasDetTrans{
         meta.setColumnLabel(2, "sBranchCd");
         meta.setColumnType(2, Types.VARCHAR);
         meta.setColumnDisplaySize(2, 4);
+
+        meta.setColumnName(3, "dTransact");
+        meta.setColumnLabel(3, "dTransact");
+        meta.setColumnType(3, Types.TIMESTAMP);
+
+        meta.setColumnName(4, "dEffectve");
+        meta.setColumnLabel(4, "dEffectve");
+        meta.setColumnType(4, Types.DATE);
         
-        meta.setColumnName(3, "sInvTypCd");
-        meta.setColumnLabel(3, "sInvTypCd");
-        meta.setColumnType(3, Types.VARCHAR);
-        meta.setColumnDisplaySize(3, 4);
-
-        meta.setColumnName(4, "dTransact");
-        meta.setColumnLabel(4, "dTransact");
-        meta.setColumnType(4, Types.TIMESTAMP);
-
         meta.setColumnName(5, "sReferNox");
         meta.setColumnLabel(5, "sReferNox");
         meta.setColumnType(5, Types.VARCHAR);
@@ -1092,62 +1065,27 @@ public class InvAdjustment implements XMasDetTrans{
         meta.setColumnName(6, "sRemarksx");
         meta.setColumnLabel(6, "sRemarksx");
         meta.setColumnType(6, Types.VARCHAR);
-        meta.setColumnDisplaySize(6, 128);
+        meta.setColumnDisplaySize(6, 64);
         
-        meta.setColumnName(7, "nEntryNox");
-        meta.setColumnLabel(7, "nEntryNox");
-        meta.setColumnType(7, Types.INTEGER);
+        meta.setColumnName(7, "sApproved");
+        meta.setColumnLabel(7, "sApproved");
+        meta.setColumnType(7, Types.VARCHAR);
+        meta.setColumnDisplaySize(7, 12);
         
-        meta.setColumnName(8, "sSourceNo");
-        meta.setColumnLabel(8, "sSourceNo");
-        meta.setColumnType(8, Types.VARCHAR);
-        meta.setColumnDisplaySize(8, 12);
+        meta.setColumnName(8, "dApproved");
+        meta.setColumnLabel(8, "dApproved");
+        meta.setColumnType(8, Types.TIMESTAMP);
+                
+        meta.setColumnName(9, "cTranStat");
+        meta.setColumnLabel(9, "cTranStat");
+        meta.setColumnType(9, Types.CHAR);
+        meta.setColumnDisplaySize(9, 1);
         
-        meta.setColumnName(9, "sSourceCd");
-        meta.setColumnLabel(9, "sSourceCd");
-        meta.setColumnType(9, Types.VARCHAR);
-        meta.setColumnDisplaySize(9, 4);
-        
-        meta.setColumnName(10, "sVerified");
-        meta.setColumnLabel(10, "sVerified");
+        meta.setColumnName(10, "sModified");
+        meta.setColumnLabel(10, "sModified");
         meta.setColumnType(10, Types.VARCHAR);
         meta.setColumnDisplaySize(10, 12);
-        
-        meta.setColumnName(11, "dVerified");
-        meta.setColumnLabel(11, "dVerified");
-        meta.setColumnType(11, Types.TIMESTAMP);
-        
-        meta.setColumnName(12, "sApproved");
-        meta.setColumnLabel(12, "sApproved");
-        meta.setColumnType(12, Types.VARCHAR);
-        meta.setColumnDisplaySize(12, 12);
-        
-        meta.setColumnName(13, "dApproved");
-        meta.setColumnLabel(13, "dApproved");
-        meta.setColumnType(13, Types.TIMESTAMP);   
-        
-        meta.setColumnName(14, "cTranStat");
-        meta.setColumnLabel(14, "cTranStat");
-        meta.setColumnType(14, Types.CHAR);
-        meta.setColumnDisplaySize(14, 1);
-        
-        meta.setColumnName(15, "dCreatedx");
-        meta.setColumnLabel(15, "dCreatedx");
-        meta.setColumnType(15, Types.TIMESTAMP);
-        
-        meta.setColumnName(16, "sModified");
-        meta.setColumnLabel(16, "sModified");
-        meta.setColumnType(16, Types.VARCHAR);
-        meta.setColumnDisplaySize(16, 12);
-        
-        meta.setColumnName(17, "dModified");
-        meta.setColumnLabel(17, "dModified");
-        meta.setColumnType(17, Types.TIMESTAMP);
-        
-        meta.setColumnName(18, "xInvTypNm");
-        meta.setColumnLabel(18, "xInvTypNm");
-        meta.setColumnType(18, Types.VARCHAR);
-        
+
         p_oMaster = new CachedRowSetImpl();
         p_oMaster.setMetaData(meta);
         
@@ -1158,6 +1096,7 @@ public class InvAdjustment implements XMasDetTrans{
         
         p_oMaster.updateObject("sTransNox", MiscUtil.getNextCode(MASTER_TABLE, "sTransNox", true, getConnection(), p_sBranchCd));
         p_oMaster.updateObject("dTransact", p_oNautilus.getServerDate());
+        p_oMaster.updateObject("dEffectve", p_oNautilus.getServerDate());
         p_oMaster.updateObject("cTranStat", TransactionStatus.STATE_OPEN);
         
         p_oMaster.insertRow();
@@ -1167,7 +1106,7 @@ public class InvAdjustment implements XMasDetTrans{
     private void createDetail() throws SQLException{
         RowSetMetaData meta = new RowSetMetaDataImpl();
 
-        meta.setColumnCount(13);
+        meta.setColumnCount(18);
 
         meta.setColumnName(1, "sTransNox");
         meta.setColumnLabel(1, "sTransNox");
@@ -1183,46 +1122,65 @@ public class InvAdjustment implements XMasDetTrans{
         meta.setColumnType(3, Types.VARCHAR);
         meta.setColumnDisplaySize(3, 12);
         
-        meta.setColumnName(4, "nCredtQty");
-        meta.setColumnLabel(4, "nCredtQty");
-        meta.setColumnType(4, Types.INTEGER);
+        meta.setColumnName(4, "nUnitPrce");
+        meta.setColumnLabel(4, "nUnitPrce");
+        meta.setColumnType(4, Types.DOUBLE);
         
-        meta.setColumnName(5, "nDebitQty");
-        meta.setColumnLabel(5, "nDebitQty");
-        meta.setColumnType(5, Types.INTEGER);
+        meta.setColumnName(5, "nSelPrce1");
+        meta.setColumnLabel(5, "nSelPrce1");
+        meta.setColumnType(5, Types.DOUBLE);
         
-        meta.setColumnName(6, "nInvCostx");
-        meta.setColumnLabel(6, "nInvCostx");
+        meta.setColumnName(6, "nSelPrce2");
+        meta.setColumnLabel(6, "nSelPrce2");
         meta.setColumnType(6, Types.DOUBLE);
         
-        meta.setColumnName(7, "sRemarksx");
-        meta.setColumnLabel(7, "sRemarksx");
-        meta.setColumnType(7, Types.VARCHAR);
-        meta.setColumnDisplaySize(7, 512);
+        meta.setColumnName(7, "nSelPrce3");
+        meta.setColumnLabel(7, "nSelPrce3");
+        meta.setColumnType(7, Types.DOUBLE);
         
-        meta.setColumnName(8, "xBarCodex");
-        meta.setColumnLabel(8, "xBarCodex");
-        meta.setColumnType(8, Types.VARCHAR);
+        meta.setColumnName(8, "nDiscLev1");
+        meta.setColumnLabel(8, "nDiscLev1");
+        meta.setColumnType(8, Types.DOUBLE);
         
-        meta.setColumnName(9, "xDescript");
-        meta.setColumnLabel(9, "xDescript");
-        meta.setColumnType(9, Types.VARCHAR);
+        meta.setColumnName(9, "nDiscLev2");
+        meta.setColumnLabel(9, "nDiscLev2");
+        meta.setColumnType(9, Types.DOUBLE);
         
-        meta.setColumnName(10, "xQtyOnHnd");
-        meta.setColumnLabel(10, "xQtyOnHnd");
-        meta.setColumnType(10, Types.INTEGER);
+        meta.setColumnName(10, "nDiscLev3");
+        meta.setColumnLabel(10, "nDiscLev3");
+        meta.setColumnType(10, Types.DOUBLE);
         
-        meta.setColumnName(11, "xBrandCde");
-        meta.setColumnLabel(11, "xBrandCde");
+        meta.setColumnName(11, "xBarCodex");
+        meta.setColumnLabel(11, "xBarCodex");
         meta.setColumnType(11, Types.VARCHAR);
         
-        meta.setColumnName(12, "xModelCde");
-        meta.setColumnLabel(12, "xModelCde");
+        meta.setColumnName(12, "xDescript");
+        meta.setColumnLabel(12, "xDescript");
         meta.setColumnType(12, Types.VARCHAR);
         
-        meta.setColumnName(13, "xColorCde");
-        meta.setColumnLabel(13, "xColorCde");
-        meta.setColumnType(13, Types.VARCHAR);
+        meta.setColumnName(13, "xQtyOnHnd");
+        meta.setColumnLabel(13, "xQtyOnHnd");
+        meta.setColumnType(13, Types.INTEGER);
+        
+        meta.setColumnName(14, "xBrandCde");
+        meta.setColumnLabel(14, "xBrandCde");
+        meta.setColumnType(14, Types.VARCHAR);
+        
+        meta.setColumnName(15, "xModelCde");
+        meta.setColumnLabel(15, "xModelCde");
+        meta.setColumnType(15, Types.VARCHAR);
+        
+        meta.setColumnName(16, "xColorCde");
+        meta.setColumnLabel(16, "xColorCde");
+        meta.setColumnType(16, Types.VARCHAR);
+        
+        meta.setColumnName(17, "xUnitPrce");
+        meta.setColumnLabel(17, "xUnitPrce");
+        meta.setColumnType(17, Types.DOUBLE);
+        
+        meta.setColumnName(18, "xSelPrce1");
+        meta.setColumnLabel(18, "xSelPrce1");
+        meta.setColumnType(18, Types.DOUBLE);
 
         p_oDetail = new CachedRowSetImpl();
         p_oDetail.setMetaData(meta);
@@ -1319,9 +1277,13 @@ public class InvAdjustment implements XMasDetTrans{
                     
                     p_oDetail.absolute(fnRow);
                     p_oDetail.updateObject("sStockIDx", (String) loJSON.get("sStockIDx"));
-                    p_oDetail.updateObject("nCredtQty", 0);
-                    p_oDetail.updateObject("nDebitQty", 0);
-                    p_oDetail.updateObject("nInvCostx", Double.valueOf(String.valueOf(loJSON.get("nUnitPrce"))));
+                    p_oDetail.updateObject("nUnitPrce", 0.00);
+                    p_oDetail.updateObject("nSelPrce1", 0.00);
+                    p_oDetail.updateObject("nSelPrce2", 0.00);
+                    p_oDetail.updateObject("nSelPrce3", 0.00);
+                    p_oDetail.updateObject("nDiscLev1", 0.00); //supervisor
+                    p_oDetail.updateObject("nDiscLev2", 0.00); //manager
+                    p_oDetail.updateObject("nDiscLev3", 0.00); //wholesale
                     
                     p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xBarCodex"), (String) loJSON.get("sBarCodex"));
                     p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xDescript"), (String) loJSON.get("sDescript"));
@@ -1329,6 +1291,8 @@ public class InvAdjustment implements XMasDetTrans{
                     p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xBrandCde"), (String) loJSON.get("sBrandCde"));
                     p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xModelCde"), (String) loJSON.get("sModelCde"));
                     p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xColorCde"), (String) loJSON.get("sColorCde")); 
+                    p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xUnitPrce"), Double.valueOf(String.valueOf(loJSON.get("nUnitPrce")))); 
+                    p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xSelPrce1"), Double.valueOf(String.valueOf(loJSON.get("nSelPrce1")))); 
                     
                     p_oDetail.updateRow();    
                     if (!lbExist) addDetail();
@@ -1354,7 +1318,6 @@ public class InvAdjustment implements XMasDetTrans{
                 loJSON = (JSONObject) ((JSONArray) loParser.parse((String) loJSON.get("payload"))).get(0);
                 
                 p_oDetail.absolute(lnCtr);
-                p_oDetail.updateObject("nInvCostx", Double.valueOf(String.valueOf(loJSON.get("nUnitPrce"))));
 
                 p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xBarCodex"), (String) loJSON.get("sBarCodex"));
                 p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xDescript"), (String) loJSON.get("sDescript"));
@@ -1362,73 +1325,11 @@ public class InvAdjustment implements XMasDetTrans{
                 p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xBrandCde"), (String) loJSON.get("sBrandCde"));
                 p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xModelCde"), (String) loJSON.get("sModelCde"));
                 p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xColorCde"), (String) loJSON.get("sColorCde")); 
+                p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xUnitPrce"), Double.valueOf(String.valueOf(loJSON.get("nUnitPrce")))); 
+                p_oDetail.updateObject(MiscUtil.getColumnIndex(p_oDetail, "xSelPrce1"), Double.valueOf(String.valueOf(loJSON.get("nSelPrce1")))); 
 
                 p_oDetail.updateRow();   
             }
         }
-    }
-    
-    private boolean saveInvTrans() throws SQLException{
-        InvTrans loTrans = new InvTrans(p_oNautilus, p_sBranchCd);
-        int lnRow = getItemCount();
-        boolean lbHasRecord;
-        
-        if (loTrans.InitTransaction()){
-            p_oMaster.first();
-            
-            lbHasRecord = false;
-            for (int lnCtr = 0; lnCtr <= lnRow-1; lnCtr++){
-                p_oDetail.absolute(lnCtr + 1);
-                if (p_oDetail.getInt("nDebitQty") > 0){
-                    loTrans.setMaster(lnCtr, "sStockIDx", p_oDetail.getString("sStockIDx"));
-                    loTrans.setMaster(lnCtr, "nQuantity", p_oDetail.getInt("nDebitQty"));
-                    
-                    lbHasRecord = true;
-                }
-            }
-            
-            if (lbHasRecord){
-                if (!loTrans.DebitMemo(p_oMaster.getString("sTransNox"), 
-                                        p_oMaster.getDate("dTransact"), 
-                                        EditMode.ADDNEW)){
-                    setMessage(loTrans.getMessage());
-                    return false;
-                }
-            }            
-        } else {
-            setMessage(loTrans.getMessage());
-            return false;
-        }
-        
-        if (loTrans.InitTransaction()){
-            p_oMaster.first();
-            
-            lbHasRecord = false;
-            for (int lnCtr = 0; lnCtr <= lnRow-1; lnCtr++){
-                p_oDetail.absolute(lnCtr + 1);
-                if (p_oDetail.getInt("nCredtQty") > 0){
-                    loTrans.setMaster(lnCtr, "sStockIDx", p_oDetail.getString("sStockIDx"));
-                    loTrans.setMaster(lnCtr, "nQuantity", p_oDetail.getInt("nCredtQty"));
-                    
-                    lbHasRecord = true;
-                }
-            }
-            
-            if (lbHasRecord){
-                if (!loTrans.CreditMemo(p_oMaster.getString("sTransNox"), 
-                                        p_oMaster.getDate("dTransact"), 
-                                        EditMode.ADDNEW)){
-                    setMessage(loTrans.getMessage());
-                    return false;
-                }
-            }
-            
-            
-        } else {
-            setMessage(loTrans.getMessage());
-            return false;
-        }
-        
-        return true;
     }
 }

@@ -346,6 +346,8 @@ public class InvSearchF implements iSearch{
                 lsSQL = MiscUtil.addCondition(getSQ_SP_Inventory_With_PO(), "a.sInvTypCd = 'SP'"); break;
             case searchSPInvTransfer:
                 lsSQL = getSQ_SPInv_Transfer(); break;
+            case searchSPInvPriceChange:
+                lsSQL = getSQ_SPInv_Price_Change(); break;
             default:
                 break;
         }
@@ -421,11 +423,13 @@ public class InvSearchF implements iSearch{
                 _filter_list.add("a.sColorCde"); _filter_description.add("Color Code");
                 _filter_list.add("a.sInvTypCd"); _filter_description.add("Inv. Type Code");
                 _filter_list.add("a.sModelCde"); _filter_description.add("Model Code");
+                _filter_list.add("a.sSupplier"); _filter_description.add("Supplier");
                 
                 _fields.add("sBarCodex"); _fields_descript.add("Bar Code");
                 _fields.add("sDescript"); _fields_descript.add("Description");
-                _fields.add("nQtyOnHnd"); _fields_descript.add("On Hand");
                 _fields.add("sBrandCde"); _fields_descript.add("Brand");
+                _fields.add("nQtyOnHnd"); _fields_descript.add("On Hand");
+                _fields.add("nSelPrce1"); _fields_descript.add("SRP");
                 break;
             case searchStocksWithOtherInfo:
                 _filter_list.add("a.sBrandCde"); _filter_description.add("Brand Code");
@@ -433,10 +437,12 @@ public class InvSearchF implements iSearch{
                 _filter_list.add("a.sColorCde"); _filter_description.add("Color Code");
                 _filter_list.add("a.sInvTypCd"); _filter_description.add("Inv. Type Code");
                 _filter_list.add("a.sModelCde"); _filter_description.add("Model Code");
+                _filter_list.add("a.sSupplier"); _filter_description.add("Supplier");
                 
                 _fields.add("sBarCodex"); _fields_descript.add("Bar Code");
                 _fields.add("sDescript"); _fields_descript.add("Description");
                 _fields.add("nQtyOnHnd"); _fields_descript.add("On Hand");
+                _fields.add("nSelPrce1"); _fields_descript.add("SRP");
                 _fields.add("sBrandCde"); _fields_descript.add("Brand");
                 _fields.add("sModelCde"); _fields_descript.add("Model");
                 _fields.add("sColorCde"); _fields_descript.add("Color");
@@ -447,11 +453,13 @@ public class InvSearchF implements iSearch{
                 _filter_list.add("a.sColorCde"); _filter_description.add("Color Code");
                 _filter_list.add("a.sInvTypCd"); _filter_description.add("Inv. Type Code");
                 _filter_list.add("a.sModelCde"); _filter_description.add("Model Code");
+                _filter_list.add("a.sSupplier"); _filter_description.add("Supplier");
                 
                 _fields.add("sBarCodex"); _fields_descript.add("Bar Code");
                 _fields.add("sDescript"); _fields_descript.add("Description");
-                _fields.add("nQtyOnHnd"); _fields_descript.add("On Hand");
                 _fields.add("sBrandCde"); _fields_descript.add("Brand");
+                _fields.add("nQtyOnHnd"); _fields_descript.add("On Hand");
+                _fields.add("nSelPrce1"); _fields_descript.add("SRP");
                 break;
             case searchBranchStocksWithOtherInfo:
                 _filter_list.add("a.sBrandCde"); _filter_description.add("Brand Code");
@@ -459,10 +467,12 @@ public class InvSearchF implements iSearch{
                 _filter_list.add("a.sColorCde"); _filter_description.add("Color Code");
                 _filter_list.add("a.sInvTypCd"); _filter_description.add("Inv. Type Code");
                 _filter_list.add("a.sModelCde"); _filter_description.add("Model Code");
+                _filter_list.add("a.sSupplier"); _filter_description.add("Supplier");
                 
                 _fields.add("sBarCodex"); _fields_descript.add("Bar Code");
                 _fields.add("sDescript"); _fields_descript.add("Description");
                 _fields.add("nQtyOnHnd"); _fields_descript.add("On Hand");
+                _fields.add("sBrandCde"); _fields_descript.add("Brand");
                 _fields.add("sBrandCde"); _fields_descript.add("Brand");
                 _fields.add("sModelCde"); _fields_descript.add("Model");
                 _fields.add("sColorCde"); _fields_descript.add("Color");
@@ -479,17 +489,21 @@ public class InvSearchF implements iSearch{
                 _fields.add("sSerialID"); _fields_descript.add("ID");
                 _fields.add("sSerial01"); _fields_descript.add("Engine No.");
                 _fields.add("sSerial02"); _fields_descript.add("Frame No.");
-//                _fields.add("xBrandNme"); _fields_descript.add("Brand");
-//                _fields.add("xModelNme"); _fields_descript.add("Model");
-//
-//                _filter_list.add("c.sDescript"); _filter_description.add("Brand");
-//                _filter_list.add("d.sDescript"); _filter_description.add("Model");
                 break;
             case searchSPInvRequest:
             case searchSPInvAdjustment:
                 _fields.add("sTransNox"); _fields_descript.add("Trans. No.");
                 _fields.add("sRemarksx"); _fields_descript.add("Remarks");
                 _fields.add("dTransact"); _fields_descript.add("Date");
+                _fields.add("sReferNox"); _fields_descript.add("Refer. No.");
+
+                _filter_list.add("sReferNox"); _filter_description.add("Refer. No.");
+                _filter_list.add("cTranStat"); _filter_description.add("Status");
+                break;
+            case searchSPInvPriceChange:
+                _fields.add("sTransNox"); _fields_descript.add("Trans. No.");
+                _fields.add("sRemarksx"); _fields_descript.add("Remarks");
+                _fields.add("dEffectve"); _fields_descript.add("Effectivity");
                 _fields.add("sReferNox"); _fields_descript.add("Refer. No.");
 
                 _filter_list.add("sReferNox"); _filter_description.add("Refer. No.");
@@ -546,6 +560,7 @@ public class InvSearchF implements iSearch{
                     ", IFNULL(a.sModelCde, '') sModelCde" +
                     ", IFNULL(a.sColorCde, '') sColorCde" +
                     ", IFNULL(a.sInvTypCd, '') sInvTypCd" +
+                    ", a.sSupplier" +
                     ", a.nUnitPrce" +
                     ", a.nSelPrce1" +
                     ", a.cComboInv" +
@@ -587,6 +602,7 @@ public class InvSearchF implements iSearch{
                     ", IFNULL(a.sModelCde, '') sModelCde" +
                     ", IFNULL(a.sColorCde, '') sColorCde" +
                     ", IFNULL(a.sInvTypCd, '') sInvTypCd" +
+                    ", a.sSupplier" +
                     ", a.nUnitPrce" +
                     ", a.nSelPrce1" +
                     ", a.cComboInv" +
@@ -677,6 +693,15 @@ public class InvSearchF implements iSearch{
                 " FROM Inv_Adjustment_Master";
     }
     
+    private String getSQ_SPInv_Price_Change(){
+        return "SELECT" +
+                    "  sTransNox" +
+                    ", sRemarksx" +
+                    ", dEffectve" +
+                    ", sReferNox" +
+                " FROM Price_Change_Master";
+    }
+    
     private String getSQ_SPInv_Transfer(){
         return "SELECT" +
                     "  a.sTransNox" +					
@@ -721,6 +746,7 @@ public class InvSearchF implements iSearch{
         searchSPInvRequestCancel,
         searchSPInventoryWPO,
         searchSPInvTransfer,
-        searchSPInvAdjustment
+        searchSPInvAdjustment,
+        searchSPInvPriceChange
     }
 }

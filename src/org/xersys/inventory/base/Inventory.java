@@ -130,15 +130,6 @@ public class Inventory implements XRecord{
             } else {//old record
                 lsSQL = MiscUtil.rowset2SQL(p_oMaster, MASTER_TABLE, "xBrandNme;xModelNme;xInvTypNm",
                             "sStockIDx = " + SQLUtil.toSQL(p_oMaster.getString("sStockIDx")));
-                
-                if (!lsSQL.equals("")){
-                    if(p_oNautilus.executeUpdate(lsSQL, MASTER_TABLE, p_sBranchCd, "") <= 0){
-                        if(!p_oNautilus.getMessage().isEmpty())
-                            setMessage(p_oNautilus.getMessage());
-                        else
-                            setMessage("No record updated");
-                    }
-                }
             }            
 
             if (!lsSQL.isEmpty()){
@@ -163,6 +154,10 @@ public class Inventory implements XRecord{
                     if (!p_oInvMaster.SaveRecord()){
                         setMessage(p_oInvMaster.getMessage());
                     }
+                } else {
+                    if (!p_oInvMaster.SaveRecord()){
+                        setMessage(p_oInvMaster.getMessage());
+                    }                 
                 }
             }
             
