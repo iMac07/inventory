@@ -170,7 +170,11 @@ public class MCSerial implements XRecord{
         if (p_nEditMode == EditMode.READY){
             p_nEditMode = EditMode.UPDATE;
             return true;
-        } else return false;
+        } else {
+            setMessage("No record loaded.");
+            return false;
+        }
+            
     }
 
     @Override
@@ -383,13 +387,13 @@ public class MCSerial implements XRecord{
                     ", a.dModified" +
                     ", IFNULL(c.sDescript, '') xBrandNme" +
                     ", IFNULL(d.sDescript, '') xModelNme" +
-                    ", '' xColorNme" +
+                    ", IFNULL(e.sColorNme, '') xColorNme" +
                 " FROM Inv_Serial a" +
-                    ", Inventory b" +
-                        " LEFT JOIN Brand c ON b.sBrandCde = c.sBrandCde" +
-                        " LEFT JOIN Model d ON a.sModelCde = d.sModelCde" +
-                " WHERE a.sStockIDx = b.sStockIDx" +
-                    " AND b.sInvTypCd = 'MC'";
+                    " LEFT JOIN Inventory b ON a.sStockIDx = b.sStockIDx" +
+                    " LEFT JOIN Brand c ON b.sBrandCde = c.sBrandCde AND c.sInvTypCd = 'MC'" +
+                    " LEFT JOIN Model d ON b.sModelCde = d.sModelCde AND d.sInvTypCd = 'MC'" +
+                    " LEFT JOIN Color e ON b.sColorCde = e.sColorIDx" +
+                " WHERE b.sInvTypCd = 'MC'";
     }
     
     private void addMaster() throws SQLException{
@@ -432,7 +436,11 @@ public class MCSerial implements XRecord{
             if (p_oMaster.getString("sSerial02").isEmpty()){
                 setMessage("Frame no. must not be empty.");
                 return false;
-            }          
+            }   
+            
+            p_oMaster.first();
+            p_oMaster.updateObject("sBranchCd", (String) p_oNautilus.getBranchConfig("sBranchCd"));
+            p_oMaster.updateRow();
 
             return true;
         } catch (SQLException e) {

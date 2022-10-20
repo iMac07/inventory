@@ -482,8 +482,10 @@ public class InvSearchF implements iSearch{
                 _fields.add("sDescript"); _fields_descript.add("Description");
                 _fields.add("xBrandNme"); _fields_descript.add("Brand");
                 _fields.add("xModelNme"); _fields_descript.add("Model");
+                _fields.add("xColorNme"); _fields_descript.add("Color");
 
                 _filter_list.add("b.sDescript"); _filter_description.add("Brand");
+                _filter_list.add("c.sDescript"); _filter_description.add("Model");
                 break;
             case searchMCSerial:
                 _fields.add("sSerialID"); _fields_descript.add("ID");
@@ -641,15 +643,14 @@ public class InvSearchF implements iSearch{
                     ", a.sBrandCde" +
                     ", a.sModelCde" +
                     ", a.sColorCde" +
-                    ", b.sDescript xBrandNme" +
-                    ", c.sDescript xModelNme" +
-                    ", '' xColorNme" +
+                    ", IFNULL(b.sDescript, '') xBrandNme" +
+                    ", IFNULL(c.sDescript, '') xModelNme" +
+                    ", IFNULL(d.sColorNme, '') xColorNme" +
                 " FROM Inventory a" +
-                    ", Brand b" +
-                    ", Model c" +
-                " WHERE a.sBrandCde = b.sBrandCde" +
-                    " AND a.sModelCde = c.sModelCde" +
-                    " AND a.sInvTypCd = 'MC'";
+                    " LEFT JOIN Brand b ON a.sBrandCde = b.sBrandCde AND b.sInvTypCd = 'MC'" +
+                    " LEFT JOIN Model c ON a.sModelCde = c.sModelCde AND c.sInvTypCd = 'MC'" +
+                    " LEFT JOIN Color d ON a.sColorCde = d.sColorIDx" +
+                " WHERE a.sInvTypCd = 'MC'";
     }
     
     private String getSQ_MC_Serial(){
