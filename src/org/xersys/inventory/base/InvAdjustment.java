@@ -31,6 +31,7 @@ import org.xersys.commander.util.SQLUtil;
 import org.xersys.inventory.search.InvSearchF;
 import org.xersys.lib.pojo.Temp_Transactions;
 
+
 public class InvAdjustment implements XMasDetTrans{
     private final String MASTER_TABLE = "Inv_Adjustment_Master";
     private final String DETAIL_TABLE = "Inv_Adjustment_Detail";

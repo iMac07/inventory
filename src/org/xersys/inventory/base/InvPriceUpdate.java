@@ -6,7 +6,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
-import java.sql.Date;
 import java.util.Iterator;
 import javax.sql.RowSetMetaData;
 import javax.sql.rowset.CachedRowSet;
@@ -29,7 +28,6 @@ import org.xersys.commander.iface.XNautilus;
 import org.xersys.commander.util.CommonUtil;
 import org.xersys.commander.util.MiscUtil;
 import org.xersys.commander.util.SQLUtil;
-import org.xersys.commander.util.StringUtil;
 import org.xersys.inventory.search.InvSearchF;
 import org.xersys.lib.pojo.Temp_Transactions;
 
