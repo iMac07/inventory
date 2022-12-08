@@ -43,8 +43,6 @@ public class Inventory implements XRecord{
     
     private CachedRowSet p_oMaster;
     
-    
-    
     public Inventory(XNautilus foNautilus, String fsBranchCd, boolean fbWithParent){
         p_oNautilus = foNautilus;
         p_sBranchCd = fsBranchCd;
