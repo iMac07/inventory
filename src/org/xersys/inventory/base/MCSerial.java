@@ -183,14 +183,14 @@ public class MCSerial implements XRecord{
         setMessage("");       
         
         try {
-            if (p_oMaster != null){
-                p_oMaster.first();
-
-                if (p_oMaster.getString("sStockIDx").equals(fsValue)){
-                    p_nEditMode  = EditMode.READY;
-                    return true;
-                }
-            }
+//            if (p_oMaster != null){
+//                p_oMaster.first();
+//
+//                if (p_oMaster.getString("sStockIDx").equals(fsValue)){
+//                    p_nEditMode  = EditMode.READY;
+//                    return true;
+//                }
+//            }
             
             String lsSQL;
             ResultSet loRS;
@@ -389,11 +389,10 @@ public class MCSerial implements XRecord{
                     ", IFNULL(d.sDescript, '') xModelNme" +
                     ", IFNULL(e.sColorNme, '') xColorNme" +
                 " FROM Inv_Serial a" +
-                    " LEFT JOIN Inventory b ON a.sStockIDx = b.sStockIDx" +
+                    " LEFT JOIN Inventory b ON a.sStockIDx = b.sStockIDx AND b.sInvTypCd = 'MC'" +
                     " LEFT JOIN Brand c ON b.sBrandCde = c.sBrandCde AND c.sInvTypCd = 'MC'" +
                     " LEFT JOIN Model d ON b.sModelCde = d.sModelCde AND d.sInvTypCd = 'MC'" +
-                    " LEFT JOIN Color e ON b.sColorCde = e.sColorIDx" +
-                " WHERE b.sInvTypCd = 'MC'";
+                    " LEFT JOIN Color e ON b.sColorCde = e.sColorIDx";
     }
     
     private void addMaster() throws SQLException{
@@ -423,10 +422,10 @@ public class MCSerial implements XRecord{
                 return false;
             }
             
-            if (p_oMaster.getString("sStockIDx").isEmpty()){
-                setMessage("Model must not be empty.");
-                return false;
-            }
+//            if (p_oMaster.getString("sStockIDx").isEmpty()){
+//                setMessage("Model must not be empty.");
+//                return false;
+//            }
             
             if (p_oMaster.getString("sSerial01").isEmpty()){
                 setMessage("Engine no. must not be empty.");

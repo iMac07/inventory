@@ -369,6 +369,7 @@ public class InvTrans {
                     case InvConstants.SALES:
                     case InvConstants.JOB_ORDER:
                     case InvConstants.DELIVERY:
+                    case InvConstants.WHOLESALE:
                         p_oProcsd.updateInt("nQtyOutxx", p_oProcsd.getInt("nQtyOutxx") + p_oMaster.getInt("nQuantity"));
                         
                         if (p_oMaster.getString("sSupersed").isEmpty())
@@ -426,6 +427,7 @@ public class InvTrans {
                     switch (p_sSourceCd){
                         case InvConstants.SALES:
                         case InvConstants.JOB_ORDER:
+                        case InvConstants.WHOLESALE:
                             p_oProcsd.updateInt("nQtyIssue", p_oProcsd.getInt("nQtyIssue") + p_oMaster.getInt("nResvOrdr"));
                             break;
                         case InvConstants.PURCHASE_RECEIVING:
