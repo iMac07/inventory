@@ -427,9 +427,10 @@ public class InvSearchF implements iSearch{
                 
                 _fields.add("sBarCodex"); _fields_descript.add("Bar Code");
                 _fields.add("sDescript"); _fields_descript.add("Description");
-                _fields.add("sBrandCde"); _fields_descript.add("Brand");
                 _fields.add("nQtyOnHnd"); _fields_descript.add("On Hand");
+                _fields.add("nUnitPrce"); _fields_descript.add("Cost");
                 _fields.add("nSelPrce1"); _fields_descript.add("SRP");
+                _fields.add("sBrandCde"); _fields_descript.add("Brand");
                 break;
             case searchStocksWithOtherInfo:
                 _filter_list.add("a.sBrandCde"); _filter_description.add("Brand Code");
@@ -457,9 +458,10 @@ public class InvSearchF implements iSearch{
                 
                 _fields.add("sBarCodex"); _fields_descript.add("Bar Code");
                 _fields.add("sDescript"); _fields_descript.add("Description");
-                _fields.add("sBrandCde"); _fields_descript.add("Brand");
                 _fields.add("nQtyOnHnd"); _fields_descript.add("On Hand");
+                _fields.add("nUnitPrce"); _fields_descript.add("Cost");
                 _fields.add("nSelPrce1"); _fields_descript.add("SRP");
+                _fields.add("sBrandCde"); _fields_descript.add("Brand");
                 break;
             case searchBranchStocksWithOtherInfo:
                 _filter_list.add("a.sBrandCde"); _filter_description.add("Brand Code");
@@ -632,7 +634,8 @@ public class InvSearchF implements iSearch{
                 " FROM Inventory a" +
                     ", Inv_Master b" +
                 " WHERE a.sStockIDx = b.sStockIDx" +
-                    " AND b.sBranchCd = " + SQLUtil.toSQL((String) _app.getBranchConfig("sBranchCd"));
+                    " AND b.sBranchCd = " + SQLUtil.toSQL((String) _app.getBranchConfig("sBranchCd")) +
+                    " AND a.cRecdStat = '1'";
     }
     
     private String getSQ_MC_Model(){

@@ -1027,8 +1027,8 @@ public class InvAdjustment implements XMasDetTrans{
             }
             
             for(lnCtr = 1; lnCtr <= getItemCount(); lnCtr++){
-                if ((int) getDetail(lnCtr, "nCredtQty") <= 0 &&
-                        (int) getDetail(lnCtr, "nDebitQty") <= 0){
+                if (Integer.parseInt(String.valueOf(getDetail(lnCtr, "nCredtQty"))) <= 0 &&
+                        Integer.parseInt(String.valueOf(getDetail(lnCtr, "nDebitQty"))) <= 0){
                     setMessage("An item has zero debit and credit quantity.");
                     return false;
                 }
