@@ -725,9 +725,12 @@ public class InvTransfer implements XMasDetTrans{
                     ", b.sCompnyNm xBranchNm" +
                     ", c.sCompnyNm xDestinat" +
                     ", '' xTruckNme" +
+                    ", CONCAT(b.sAddressx, ', ', d.sTownName) xAddressx" +
                 " FROM Inv_Transfer_Master a" +
                     " LEFT JOIN xxxSysClient b ON a.sBranchCd = b.sBranchCd" +
-                    " LEFT JOIN xxxSysClient c ON a.sDestinat = c.sBranchCd";
+                    " LEFT JOIN xxxSysClient c" +
+                        " LEFT JOIN TownCity d ON c.sTownIDxx = d.sTownIDxx" +
+                    " ON a.sDestinat = c.sBranchCd";
     }
     
     private String getSQ_Detail(){

@@ -33,6 +33,8 @@ public class Inventory implements XRecord{
     private final ParamSearchF p_oBrand;
     private final ParamSearchF p_oModel;
     private final ParamSearchF p_oInvType;
+    private final ParamSearchF p_oSizes;
+    private final ParamSearchF p_oMeasure;
     
     private InvMaster p_oInvMaster;
     private LRecordMas p_oListener;
@@ -53,6 +55,8 @@ public class Inventory implements XRecord{
         p_oBrand = new ParamSearchF(p_oNautilus, ParamSearchF.SearchType.searchBrand);
         p_oModel = new ParamSearchF(p_oNautilus, ParamSearchF.SearchType.searchModel);
         p_oInvType = new ParamSearchF(p_oNautilus, ParamSearchF.SearchType.searchInvType);
+        p_oSizes = new ParamSearchF(p_oNautilus, ParamSearchF.SearchType.searchSizes);
+        p_oMeasure = new ParamSearchF(p_oNautilus, ParamSearchF.SearchType.searchMeasure);
         p_oStocks = new InvSearchF(p_oNautilus, InvSearchF.SearchType.searchStocks);
         
         p_nEditMode = EditMode.UNKNOWN;
@@ -124,9 +128,9 @@ public class Inventory implements XRecord{
                 
                 if (!p_bWithParent) MiscUtil.close(loConn);
                 
-                lsSQL = MiscUtil.rowset2SQL(p_oMaster, MASTER_TABLE, "xBrandNme;xModelNme;xInvTypNm");
+                lsSQL = MiscUtil.rowset2SQL(p_oMaster, MASTER_TABLE, "xBrandNme;xModelNme;xInvTypNm;xSizeName;xMeasurNm");
             } else {//old record
-                lsSQL = MiscUtil.rowset2SQL(p_oMaster, MASTER_TABLE, "xBrandNme;xModelNme;xInvTypNm",
+                lsSQL = MiscUtil.rowset2SQL(p_oMaster, MASTER_TABLE, "xBrandNme;xModelNme;xInvTypNm;xSizeName;xMeasurNm",
                             "sStockIDx = " + SQLUtil.toSQL(p_oMaster.getString("sStockIDx")));
             }            
 
@@ -361,6 +365,12 @@ public class Inventory implements XRecord{
                 case "sInvTypCd":
                     getInvType((String) foValue);
                     break;
+                case "sSizeIDxx":
+                    getSizes((String) foValue);
+                    break;
+                case "sMeasurID":
+                    getMeasure((String) foValue);
+                    break;
                 case "nUnitPrce":
                 case "nSelPrce1":
                     p_oMaster.first();
@@ -459,6 +469,108 @@ public class Inventory implements XRecord{
     
     public ParamSearchF getSearchInvType(){
         return p_oInvType;
+    }
+    
+    public JSONObject searchSizes(String fsKey, Object foValue, boolean fbExact){
+        p_oSizes.setKey(fsKey);
+        p_oSizes.setValue(foValue);
+        p_oSizes.setExact(fbExact);
+        
+        return p_oSizes.Search();
+    }
+    
+    public ParamSearchF getSearchSizes(){
+        return p_oSizes;
+    }
+    
+    public JSONObject searchMeasure(String fsKey, Object foValue, boolean fbExact){
+        p_oMeasure.setKey(fsKey);
+        p_oMeasure.setValue(foValue);
+        p_oMeasure.setExact(fbExact);
+        
+        return p_oMeasure.Search();
+    }
+    
+    public ParamSearchF getSearchMeasure(){
+        return p_oMeasure;
+    }
+    
+    private void getSizes(String foValue){
+        String lsProcName = this.getClass().getSimpleName() + ".getSizes()";
+        
+        JSONObject loJSON = searchSizes("sSizeIDxx", foValue, true);
+        if ("success".equals((String) loJSON.get("result"))){
+            try {
+                JSONParser loParser = new JSONParser();
+
+                p_oMaster.first();
+                try {
+                    JSONArray loArray = (JSONArray) loParser.parse((String) loJSON.get("payload"));
+
+                    switch (loArray.size()){
+                        case 0:
+                            p_oMaster.updateObject("sSizeIDxx", "");
+                            p_oMaster.updateObject("xSizeName", "");
+                            p_oMaster.updateRow();
+                            break;
+                        default:
+                            loJSON = (JSONObject) loArray.get(0);
+                            p_oMaster.updateObject("sSizeIDxx", (String) loJSON.get("sSizeIDxx"));
+                            p_oMaster.updateObject("xSizeName", (String) loJSON.get("sSizeName"));
+                            p_oMaster.updateRow();
+                    }
+                } catch (ParseException ex) {
+                    ex.printStackTrace();
+                    p_oListener.MasterRetreive("sSizeIDxx", "");
+                    p_oListener.MasterRetreive("xSizeName", "");
+                    p_oMaster.updateRow();
+                }
+
+                p_oListener.MasterRetreive("sSizeIDxx", (String) getMaster("xSizeName"));
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+                setMessage("SQLException on " + lsProcName + ". Please inform your System Admin.");
+            }
+        }
+    }
+    
+    private void getMeasure(String foValue){
+        String lsProcName = this.getClass().getSimpleName() + ".getMeasure()";
+        
+        JSONObject loJSON = searchMeasure("sMeasurID", foValue, true);
+        if ("success".equals((String) loJSON.get("result"))){
+            try {
+                JSONParser loParser = new JSONParser();
+
+                p_oMaster.first();
+                try {
+                    JSONArray loArray = (JSONArray) loParser.parse((String) loJSON.get("payload"));
+
+                    switch (loArray.size()){
+                        case 0:
+                            p_oMaster.updateObject("sMeasurID", "");
+                            p_oMaster.updateObject("xMeasurNm", "");
+                            p_oMaster.updateRow();
+                            break;
+                        default:
+                            loJSON = (JSONObject) loArray.get(0);
+                            p_oMaster.updateObject("sMeasurID", (String) loJSON.get("sMeasurID"));
+                            p_oMaster.updateObject("xMeasurNm", (String) loJSON.get("sMeasurNm"));
+                            p_oMaster.updateRow();
+                    }
+                } catch (ParseException ex) {
+                    ex.printStackTrace();
+                    p_oListener.MasterRetreive("sMeasurID", "");
+                    p_oListener.MasterRetreive("xMeasurNm", "");
+                    p_oMaster.updateRow();
+                }
+
+                p_oListener.MasterRetreive("sMeasurID", (String) getMaster("xMeasurNm"));
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+                setMessage("SQLException on " + lsProcName + ". Please inform your System Admin.");
+            }
+        }
     }
     
     private void getInvType(String foValue){
@@ -607,6 +719,8 @@ public class Inventory implements XRecord{
                     ", a.sBrandCde" +
                     ", a.sModelCde" +
                     ", a.sColorCde" +
+                    ", a.sSizeIDxx" +
+                    ", a.sMeasurID" +
                     ", a.sInvTypCd" +
                     ", a.nUnitPrce" +
                     ", a.nSelPrce1" +
@@ -618,12 +732,16 @@ public class Inventory implements XRecord{
                     ", a.cRecdStat" +
                     ", a.dModified" +
                     ", IFNULL(b.sDescript, '') xBrandNme" +
-                    ", IFNULL(c.sDescript, '') xModelNme" +
+                    ", IFNULL(c.sModelNme, '') xModelNme" +
                     ", IFNULL(d.sDescript, '') xInvTypNm" +
+                    ", IFNULL(e.sSizeName, '') xSizeName" +
+                    ", IFNULL(f.sMeasurNm, '') xMeasurNm" +
                 " FROM " + MASTER_TABLE + " a" +
                     " LEFT JOIN Brand b ON a.sBrandCde = b.sBrandCde AND a.sInvTypCd = b.sInvTypCd" +
                     " LEFT JOIN Model c ON a.sModelCde = c.sModelCde AND a.sInvTypCd = c.sInvTypCd" +
-                    " LEFT JOIN Inv_Type d ON a.sInvTypCd = d.sInvTypCd";
+                    " LEFT JOIN Inv_Type d ON a.sInvTypCd = d.sInvTypCd" +
+                    " LEFT JOIN Size e ON a.sSizeIDxx = e.sSizeIDxx" +
+                    " LEFT JOIN Measure f ON a.sMeasurID = f.sMeasurID";
     }
     
     private void addMaster() throws SQLException{
