@@ -589,6 +589,7 @@ public class InvTransfer implements XMasDetTrans{
             }
             
             if ((TransactionStatus.STATE_CANCELLED).equals(loRS.getString("cTranStat"))){
+                setMessage("Transaction is already cancelled.");
                 p_nEditMode  = EditMode.UNKNOWN;
                 return false;
             }

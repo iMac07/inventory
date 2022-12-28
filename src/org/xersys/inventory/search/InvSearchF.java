@@ -716,7 +716,7 @@ public class InvSearchF implements iSearch{
                     ", c.sCompnyNm xDestinat" +	
                 " FROM Inv_Transfer_Master a" +
                     " LEFT JOIN xxxSysClient b ON a.sBranchCd = b.sBranchCd" +
-                    " LEFT JOIN xxxSysClient c ON a.sDestinat = b.sBranchCd";
+                    " LEFT JOIN xxxSysClient c ON a.sDestinat = c.sBranchCd";
     }
     
     private String getSQ_SP_Inventory_With_PO(){
