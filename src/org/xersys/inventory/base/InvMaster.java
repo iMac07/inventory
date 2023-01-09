@@ -300,6 +300,48 @@ public class InvMaster implements XRecord{
         p_sMessagex = fsValue;
     }
     
+    private String getSQ_Sales(){
+        return "SELECT" +
+                    "'SP Retail' xSourceNm" +
+                    ", a.dTransact" +
+                    ", c.sBarCodex" +
+                    ", c.sDescript" +
+                    ", 0 nDebitQty" +
+                    ", b.nQuantity nCredtQty" +
+                    ", a.sRemarksx" +
+                    ", b.sStockIDx" +
+                    ", a.sTransNox" +
+                    ", a.cTranStat" + 
+                " FROM" +
+                    " SP_Sales_Master a" +
+                    ", SP_Sales_Detail b" + 
+                        " LEFT JOIN Inventory c" + 
+                            " ON b.sStockIDx = c.sStockIDx" + 
+                " WHERE a.sTransNox = b.sTransNox" + 
+                    " AND a.cTranStat NOT IN ('3')" + 
+                    " AND b.sStockIDx = 'xStockIDx'" + 
+                " UNION" +
+                " SELECT" + 
+                    " 'Job Order' xSourceNm" +
+                    " , a.dTransact" +
+                    " , c.sBarCodex" +
+                    " , c.sDescript" +
+                    " , 0 nDebitQty" +
+                    " , b.nQuantity nCredtQty" +
+                    " , a.sJobDescr sRemarksx" +
+                    " , b.sStockIDx" +
+                    " , a.sTransNox" +
+                    " , a.cTranStat" + 
+                " FROM" +
+                    " Job_Order_Master a" +
+                    ", Job_Order_Parts b" + 
+                        " LEFT JOIN Inventory c" + 
+                            " ON b.sStockIDx = c.sStockIDx" + 
+                " WHERE a.sTransNox = b.sTransNox" + 
+                  " AND a.cTranStat NOT IN ('3')" + 
+                  " AND b.sStockIDx = 'xStockIDx'";
+    }
+    
     private String getSQ_Master(){
         return "SELECT" +
                     "  a.sStockIDx" +
@@ -412,6 +454,24 @@ public class InvMaster implements XRecord{
                     ", a.cTranStat" +
                 " FROM PO_Return_Master a" +
                     ", PO_Return_Detail b" +
+                        " LEFT JOIN Inventory c ON b.sStockIDx = c.sStockIDx" +
+                " WHERE a.sTransNox = b.sTransNox" +
+                    " AND a.cTranStat NOT IN ('0', '3')" +
+                    " AND b.sStockIDx = 'xStockIDx'" +
+                " UNION" +
+                " SELECT" +
+                    "  'Inventory Transfer' xSourceNm" +
+                    ", a.dTransact" + 
+                    ", c.sBarCodex" +
+                    ", c.sDescript" +
+                    ", 0 nDebitQty" + 
+                    ", b.nQuantity nCredtQty" +
+                    ", a.sRemarksx" +
+                    ", b.sStockIDx" +
+                    ", a.sTransNox" +
+                    ", a.cTranStat" +
+                " FROM Inv_Transfer_Master a" +
+                    ", Inv_Transfer_Detail b" +
                         " LEFT JOIN Inventory c ON b.sStockIDx = c.sStockIDx" +
                 " WHERE a.sTransNox = b.sTransNox" +
                     " AND a.cTranStat NOT IN ('0', '3')" +
