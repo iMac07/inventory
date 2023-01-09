@@ -11,7 +11,7 @@ import org.xersys.commander.util.SQLUtil;
 import org.xersys.inventory.base.InvMaster;
 
 public class ClassifyInfo {
-    private final String MASTER_TABLE = "Classify_Info";
+    private final String MASTER_TABLE = "Inv_Classification_Config";
     
     private final XNautilus p_oNautilus;
     private final String p_sInvTypCd;
