@@ -67,7 +67,7 @@ public class InvPriceUpdate implements XMasDetTrans{
         p_bWithParent = fbWithParent;
         p_nEditMode = EditMode.UNKNOWN;
         
-        p_oSearchItem = new InvSearchF(p_oNautilus, InvSearchF.SearchType.searchBranchStocks);
+        p_oSearchItem = new InvSearchF(p_oNautilus, InvSearchF.SearchType.searchStocks);
         p_oSearchTrans = new InvSearchF(p_oNautilus, InvSearchF.SearchType.searchSPInvPriceChange);
         
         loadTempTransactions();
