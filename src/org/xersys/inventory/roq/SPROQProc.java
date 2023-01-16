@@ -72,24 +72,26 @@ public class SPROQProc {
     }
     
     public boolean ClassifyABC(int fnYear, int fnMonth){
+        if (fnMonth == p_oNautilus.getServerDate().getMonth()){
+            p_sMessage = "Classification of current month is not allowed.";
+            return false;
+        }
+        
         p_nYear = fnYear;
         p_nMonth = fnMonth;
-        
-        //get classification config
-        getClassifyInfo();
-        
-        //initialize period
-        initPeriod();
-        
-        if (!checkPeriod()) return false;
-        
-        //check if min max must be calculated
-        p_bMinMax = isComputeMinMax();
-        
+
         try {
-            //check if it was the first time that this branch will classify their inventory
-            //if (isFirstClassify()) return firstClassify();
-            //return reclassify();
+            //get classification config
+            getClassifyInfo();
+            
+            //initialize period
+            initPeriod();
+
+            if (!checkPeriod()) return false;
+
+            //check if min max must be calculated
+            p_bMinMax = isComputeMinMax();
+            
             return firstClassify();
         } catch (SQLException e) {
             e.printStackTrace();
@@ -286,12 +288,21 @@ public class SPROQProc {
             }
             p_oDetail.updateRow();
         } else {
-            if (lnDivisor == p_asPeriod.length){
-
+            if (lnDivisor == p_asPeriod.length){               
+                if (p_oDetail.getObject(17 + lnDivisor) == null){
+                    if (getPeriodDiff() > (int) p_oInfo.getMaster("nNoMonths"))
+                        p_oDetail.updateString("cClassify", "D");
+                    else
+                        p_oDetail.updateString("cClassify", "F");
+                } else
+                    p_oDetail.updateString("cClassify", "E");
             } else {
-
+                if (getPeriodDiff() > (int) p_oInfo.getMaster("nNoMonths"))
+                    p_oDetail.updateString("cClassify", "D");
+                else
+                    p_oDetail.updateString("cClassify", "F");
             }
-            p_oDetail.updateString("cClassify", "E");
+            
             p_oDetail.updateInt("nAvgMonSl", 0);
             p_oDetail.updateRow();
         }
@@ -364,8 +375,9 @@ public class SPROQProc {
             lnPerTotal += p_oDetail.getInt("nSoldQty1");
             
             p_oDetail.updateInt("nTotlSumx", lnRunTotal);
-            p_oDetail.updateDouble("nTotlSumP", (float) lnRunTotal / lnTotal);
+            p_oDetail.updateDouble("nTotlSumP", (float) lnRunTotal / (float) lnTotal);
             p_oDetail.updateRow();
+            System.out.println((float) lnRunTotal + " / " + lnTotal + " = " + p_oDetail.getDouble("nTotlSumP"));
             
             if (classifyParts()){
                 lsSQL = "INSERT INTO " + DETAIL_TABLE + " SET" +
@@ -394,7 +406,7 @@ public class SPROQProc {
                 "  sInvTypCd = 'SP'" +
                 ", sBranchCd = " + SQLUtil.toSQL(p_sBranchCd) +
                 ", sPeriodxx = " + SQLUtil.toSQL(p_asPeriod[0].replace("-", "")) +
-                ", nTotlSale = " + lnRunTotal +
+                ", nTotlSale = " + lnPerTotal +
                 ", cTranStat = '2'" +
                 ", sProcessd = " + SQLUtil.toSQL((String) p_oNautilus.getUserInfo("sUserIDxx")) +
                 ", dProcessd = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
@@ -412,268 +424,7 @@ public class SPROQProc {
         
         return true;
     }
-    
-    private boolean reclassify(){
-        if (!getClassifyInfo()) return false;
-        
-        String lsPeriod = String.valueOf(p_nYear) + "-" + StringHelper.prepad(String.valueOf(p_nMonth), 2, '0');
-        String lsLstPer = String.valueOf(p_nYear) + "-" + StringHelper.prepad(String.valueOf(p_nMonth - 1), 2, '0');
-        
-        //get inventory for the period
-        String lsSQL = "SELECT" +
-                            "  a.sStockIDx" +
-                            ", a.sBarCodex" +
-                            ", a.sDescript" +
-                            ", b.dBegInvxx" +
-                            ", b.dAcquired" +
-                            ", b.nQtyOnHnd" +
-                            ", b.cRecdStat" +
-                        " FROM Inventory a" +
-                            ", Inv_Master b" +
-                        " WHERE a.sStockIDx = b.sStockIDx" +
-                            " AND b.sBranchCd = " + SQLUtil.toSQL(p_sBranchCd) +
-                            " AND b.dAcquired <= " + SQLUtil.toSQL(lsPeriod  + "-30") +
-                        " ORDER BY  b.dAcquired DESC";
-        
-        ResultSet loRS = p_oNautilus.executeQuery(lsSQL);
-        
-        try {
-            int lnTotalSold = 0;
-            int lnTotalSale = 0;
-            int lnItemSold = 0;
-            int lnItemTotl = 0;
-            
-            lsSQL = "SELECT nTotlSale FROM " + MASTER_TABLE +
-                    " WHERE sInvTypCd = 'SP'" +
-                        " AND sBranchCd = " + SQLUtil.toSQL(p_sBranchCd) +
-                        " AND sPeriodxx = " + SQLUtil.toSQL(lsLstPer.replace("-", ""));
-                
-            ResultSet loSold = p_oNautilus.executeQuery(lsSQL);
-            if (loSold.next()) lnTotalSale = loSold.getInt("nTotlSale");
-            
-            p_oNautilus.beginTrans();
-            while (loRS.next()){       
-                //get sales
-                lsSQL = getSQ_Sales(p_asPeriod[0]);
-                lsSQL = "SELECT SUM(nCredtQty) nTotlSold FROM (" + lsSQL + ") x" +
-                        " GROUP BY x.sStockIDx";
-                lsSQL = lsSQL.replace("xStockIDx", loRS.getString("sStockIDx"));
-                lsSQL = lsSQL.replace("xTransact", lsPeriod + "%");
-                
-                loSold = p_oNautilus.executeQuery(lsSQL);
-                
-                if (loSold.next())
-                    lnItemSold = loSold.getInt("nTotlSold");
-                else
-                    lnItemSold = 0;
-                
-                lnTotalSold += lnItemSold;
-                
-                lsSQL = "SELECT nTotlSold FROM " + DETAIL_TABLE +
-                        " WHERE sInvTypCd = 'SP'" +
-                            " AND sBranchCd = " + SQLUtil.toSQL(p_sBranchCd) +
-                            " AND sPeriodxx = " + SQLUtil.toSQL(lsLstPer.replace("-", "")) +
-                            " AND sStockIDx = " + SQLUtil.toSQL(loRS.getString("sStockIDx"));
-                
-                loSold = p_oNautilus.executeQuery(lsSQL);
-                if (loSold.next())
-                    lnItemTotl = loSold.getInt("nTotlSold") + lnItemSold;
-                else
-                    lnItemTotl = lnItemSold;
-                
-                lsSQL = "INSERT INTO " + DETAIL_TABLE + " SET" +
-                        "  sStockIDx = " + SQLUtil.toSQL(loRS.getString("sStockIDx")) +
-                        ", sInvTypCd = 'SP'" +
-                        ", sBranchCd = " + SQLUtil.toSQL(p_sBranchCd) +
-                        ", sPeriodxx = " + SQLUtil.toSQL(lsPeriod.replace("-", "")) +
-                        ", nSoldQtyx = " + lnItemSold +
-                        ", nTotlSold = " + lnItemTotl +
-                        ", nTotlSumx = 0" +
-                        ", nTotlSumP = 0.00" +
-                        ", nAvgMonSl = 0" +
-                        ", nMinLevel = 0" +
-                        ", nMaxLevel = 0" +
-                        ", cClassify = 'F'";
-                
-                if (p_oNautilus.executeUpdate(lsSQL, DETAIL_TABLE, p_sBranchCd, "") <= 0){
-                    p_sMessage = p_oNautilus.getMessage();
-                    p_oNautilus.rollbackTrans();
-                    return false;
-                }
-            }
-            
-            //save master information
-            lsSQL = "INSERT INTO " + MASTER_TABLE + " SET" +
-                    "  sInvTypCd = 'SP'" +
-                    ", sBranchCd = " + SQLUtil.toSQL(p_sBranchCd) +
-                    ", sPeriodxx = " + SQLUtil.toSQL(lsPeriod.replace("-", "")) +
-                    ", nTotlSale = " + lnTotalSold +
-                    ", cTranStat = '1'" +
-                    ", sProcessd = " + SQLUtil.toSQL((String) p_oNautilus.getUserInfo("sUserIDxx")) +
-                    ", dProcessd = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
-                    ", dModified = " + SQLUtil.toSQL(p_oNautilus.getServerDate());
-            
-            if (p_oNautilus.executeUpdate(lsSQL, MASTER_TABLE, p_sBranchCd, "") <= 0){
-                p_sMessage = p_oNautilus.getMessage();
-                p_oNautilus.rollbackTrans();
-                return false;
-            }
-            
-            //compute total sales
-            lsSQL = "SELECT *" + 
-                    " FROM " + DETAIL_TABLE +
-                    " WHERE sInvTypCd = 'SP'" +
-                        " AND sBranchCd = " + SQLUtil.toSQL(p_sBranchCd) +
-                        " AND sPeriodxx = " + SQLUtil.toSQL(lsPeriod.replace("-", "")) +
-                    " ORDER BY nTotlSold DESC, nSoldQtyx DESC";
-            
-            loRS = p_oNautilus.executeQuery(lsSQL);
-            
-            lnItemSold = lnTotalSale;
-            while (loRS.next()){
-                lnItemSold += loRS.getInt("nSoldQtyx");
-                
-                lsSQL = "UPDATE " + DETAIL_TABLE + " SET" +
-                        "  nTotlSumx = " + lnItemSold +
-                        ", nTotlSumP = " + (float) lnItemSold / (lnTotalSold + lnTotalSale)  +
-                        " WHERE sInvTypCd = 'SP'" +
-                            " AND sBranchCd = " + SQLUtil.toSQL(p_sBranchCd) +
-                            " AND sPeriodxx = " + SQLUtil.toSQL(lsPeriod.replace("-", "")) +
-                            " AND sStockIDx = " + SQLUtil.toSQL(loRS.getString("sStockIDx")); 
-                
-                if (p_oNautilus.executeUpdate(lsSQL, DETAIL_TABLE, p_sBranchCd, "") <= 0){
-                    p_sMessage = p_oNautilus.getMessage();
-                    p_oNautilus.rollbackTrans();
-                    return false;
-                }
-            }
-            
-            //classify
-            lsSQL = "SELECT *, b.dAcquired" + 
-                    " FROM " + DETAIL_TABLE + " a" +
-                        " LEFT JOIN Inv_Master b ON a.sStockIDx = b.sStockIDx AND a.sBranchCd = b.sBranchCd" +
-                    " WHERE a.sInvTypCd = 'SP'" +
-                        " AND a.sBranchCd = " + SQLUtil.toSQL(p_sBranchCd) +
-                        " AND a.sPeriodxx = " + SQLUtil.toSQL(lsPeriod.replace("-", "")) +
-                    " ORDER BY a.nTotlSold DESC";
-            
-            loRS = p_oNautilus.executeQuery(lsSQL);
-            int lnDivisor;
-            String lsClassify = "";
-            int lnAveMonSl;
-            int lnMinLevel;
-            int lnMaxLevel;
-            
-            while (loRS.next()){
-                lnDivisor = getDivisor(loRS.getString("dAcquired"));
-                
-                if (loRS.getInt("nTotlSold") > 0){
-                    if (loRS.getDouble("nTotlSumP") <= Double.valueOf(String.valueOf(p_oInfo.getMaster("nVolRateA")))){
-                        lsClassify = "A";
-                    } else if (loRS.getDouble("nTotlSumP") <= Double.valueOf(String.valueOf(p_oInfo.getMaster("nVolRateB")))){
-                        lsClassify = "B";
-                    } else if (loRS.getDouble("nTotlSumP") <= Double.valueOf(String.valueOf(p_oInfo.getMaster("nVolRateC")))){
-                        lsClassify = "C";
-                    } else {
-                        lsClassify = "D";
-                    }
-                    
-                    try {
-                        if (lsClassify.equals("D")){
-                            lnAveMonSl = loRS.getInt("nTotlSold") / lnDivisor;
-                        } else {
-                            lnAveMonSl = Math.round((float) loRS.getInt("nTotlSold") / (float) lnDivisor);
-                        }
-                    } catch (java.lang.ArithmeticException e) {
-                        lnAveMonSl = 0;
-                    }
-                } else {
-                    if (lnDivisor == p_asPeriod.length){
-                    
-                    } else {
-                    
-                    }
-                    
-                    lsClassify = "E";
-                    lnAveMonSl = 0;
-                }
-                
-                double lnValue;
-                //compute min max
-                switch (lsClassify){
-                    case "A":
-                    case "B":
-                    case "C":
-                        lnValue = Double.valueOf(String.valueOf(p_oInfo.getMaster("nMinStcC" + lsClassify)));
-                        lnMinLevel = Math.round(lnAveMonSl * (float) lnValue);
-                        
-                        lnValue = Double.valueOf(String.valueOf(p_oInfo.getMaster("nMaxStcC" + lsClassify)));
-                        lnMaxLevel = Math.round(lnAveMonSl * (float) lnValue);
-                        break;
-                    case "D":
-                    case "F":
-                        lnValue = Double.valueOf(String.valueOf(p_oInfo.getMaster("nMinStcC" + lsClassify)));
-                        lnMinLevel = Math.round(lnAveMonSl * (float) lnValue);
-                        
-                        lnValue = Double.valueOf(String.valueOf(p_oInfo.getMaster("nMaxStcC" + lsClassify)));
-                        int lnTmpAMC = Math.round(lnAveMonSl * (float) lnValue);
-                        int lnTmpQty = (int) Math.round(Double.valueOf(String.valueOf(p_oInfo.getMaster("nMaxQtyC" + lsClassify))));
-                        
-                        if (lnTmpAMC > lnTmpQty)
-                            lnMaxLevel = lnTmpAMC;
-                        else
-                            lnMaxLevel = lnTmpQty;
-                                    
-                        break;
-                    default:
-                        lnMinLevel = 0;
-                        lnMaxLevel = 0;
-                }
-                
-                
-                lsSQL = "UPDATE " + DETAIL_TABLE + " SET" +
-                        "  cClassify = " + SQLUtil.toSQL(lsClassify) +
-                        ", nAvgMonSl = " + lnAveMonSl + 
-                        ", nMinLevel = " + lnMinLevel +
-                        ", nMaxLevel = " + lnMaxLevel +
-                        " WHERE sInvTypCd = 'SP'" +
-                            " AND sBranchCd = " + SQLUtil.toSQL(p_sBranchCd) +
-                            " AND sPeriodxx = " + SQLUtil.toSQL(lsPeriod.replace("-", "")) +
-                            " AND sStockIDx = " + SQLUtil.toSQL(loRS.getString("sStockIDx")); 
-                
-                if (p_oNautilus.executeUpdate(lsSQL, DETAIL_TABLE, p_sBranchCd, "") <= 0){
-                    p_sMessage = p_oNautilus.getMessage();
-                    p_oNautilus.rollbackTrans();
-                    return false;
-                }
-            }
-            
-            //save master information
-            lsSQL = "UPDATE " + MASTER_TABLE + " SET" +
-                        "  cTranStat = '2'" +
-                        ", sPostedxx = " + SQLUtil.toSQL((String) p_oNautilus.getUserInfo("sUserIDxx")) +
-                        ", dPostedxx = " + SQLUtil.toSQL(p_oNautilus.getServerDate()) +
-                    " WHERE sInvTypCd = 'SP'" +
-                        " AND sBranchCd = " + SQLUtil.toSQL(p_sBranchCd) +
-                        " AND sPeriodxx = " + SQLUtil.toSQL(lsPeriod.replace("-", ""));
-            
-            if (p_oNautilus.executeUpdate(lsSQL, MASTER_TABLE, p_sBranchCd, "") <= 0){
-                p_sMessage = p_oNautilus.getMessage();
-                p_oNautilus.rollbackTrans();
-                return false;
-            }
-            
-            p_oNautilus.commitTrans();
-        } catch (SQLException e) {
-            e.printStackTrace();
-            p_sMessage = e.getMessage();
-            return false;
-        }
-        
-        
-        return true;
-    }
-    
+         
     private int getDivisor(String fsAcquired){
         if (fsAcquired.equals("1900-01-01")){
             return 0;
@@ -690,6 +441,27 @@ public class SPROQProc {
             else
                 return lnDivisor + 1;
         }
+    }
+    
+    private int getPeriodDiff() throws SQLException{
+        String lsAcquired = p_oDetail.getString("dAcquired");
+        lsAcquired = lsAcquired.substring(0, 8) + "01";
+        
+        Date ldAcquired = SQLUtil.toDate(lsAcquired, SQLUtil.FORMAT_SHORT_DATE);
+        
+        lsAcquired = String.valueOf(p_nYear) + "-" + StringHelper.prepad(String.valueOf(p_nMonth), 2, '0') + "-01";
+        
+        Date ldPeriodxx = SQLUtil.toDate(lsAcquired, SQLUtil.FORMAT_SHORT_DATE);
+        
+        int lnPeriod = (int) CommonUtil.dateDiff(ldPeriodxx, ldAcquired) / 30;
+        
+        if (lnPeriod < 0){
+            lnPeriod = 0;
+        } else {
+            lnPeriod += 1;
+        }
+        
+        return lnPeriod;
     }
 
     private boolean checkPeriod(){
