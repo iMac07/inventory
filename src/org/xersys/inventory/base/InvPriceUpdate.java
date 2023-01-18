@@ -402,6 +402,7 @@ public class InvPriceUpdate implements XMasDetTrans{
                     
                         lsSQL = MiscUtil.rowset2SQL(p_oDetail, DETAIL_TABLE, "xBarCodex;xDescript;xQtyOnHnd;xBrandCde;xModelCde;xColorCde;xUnitPrce;xSelPrce1");
 
+                        System.out.println(lsSQL);
                         if(p_oNautilus.executeUpdate(lsSQL, DETAIL_TABLE, p_sBranchCd, "") <= 0){
                             if(!p_oNautilus.getMessage().isEmpty())
                                 setMessage(p_oNautilus.getMessage());
