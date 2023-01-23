@@ -375,7 +375,12 @@ public class SPROQProc {
             lnPerTotal += p_oDetail.getInt("nSoldQty1");
             
             p_oDetail.updateInt("nTotlSumx", lnRunTotal);
-            p_oDetail.updateDouble("nTotlSumP", (float) lnRunTotal / (float) lnTotal);
+            if (lnRunTotal == 0 ){
+                p_oDetail.updateDouble("nTotlSumP", 0.00);
+            } else {
+                p_oDetail.updateDouble("nTotlSumP", (float) lnRunTotal / (float) lnTotal);
+            }
+            
             p_oDetail.updateRow();
             System.out.println((float) lnRunTotal + " / " + lnTotal + " = " + p_oDetail.getDouble("nTotlSumP"));
             
@@ -395,6 +400,20 @@ public class SPROQProc {
                         ", cClassify = " + SQLUtil.toSQL(p_oDetail.getString("cClassify"));
                 
                 if (p_oNautilus.executeUpdate(lsSQL, DETAIL_TABLE, p_sBranchCd, "") <= 0){
+                    p_sMessage = p_oNautilus.getMessage();
+                    p_oNautilus.rollbackTrans();
+                    return false;
+                }
+                
+                lsSQL = "UPDATE Inv_Master SET" +
+                            "  nMinLevel = "+ p_oDetail.getInt("nMinLevel") +
+                            ", nMaxLevel = "+ p_oDetail.getInt("nMaxLevel") +
+                            ", nAvgMonSl = "+ p_oDetail.getInt("nAvgMonSl") +
+                            ", cClassify = " + SQLUtil.toSQL(p_oDetail.getString("cClassify")) +
+                        " WHERE sStockIDx = " + SQLUtil.toSQL(p_oDetail.getString("sStockIDx")) +
+                            " AND sBranchCd = " + SQLUtil.toSQL(p_sBranchCd);
+                
+                if (p_oNautilus.executeUpdate(lsSQL, "Inv_Master", p_sBranchCd, "") <= 0){
                     p_sMessage = p_oNautilus.getMessage();
                     p_oNautilus.rollbackTrans();
                     return false;
