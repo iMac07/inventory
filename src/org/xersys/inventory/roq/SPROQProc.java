@@ -68,11 +68,21 @@ public class SPROQProc {
     }
     
     public boolean ClassifyABC(){
-        return ClassifyABC(p_oNautilus.getServerDate().getYear(), p_oNautilus.getServerDate().getMonth() - 1);
+        //return ClassifyABC(p_oNautilus.getServerDate().getYear(), p_oNautilus.getServerDate().getMonth() - 1);
+        int lnYear = MiscUtil.getDateYear(p_oNautilus.getServerDate());
+        int lnMonth = MiscUtil.getDateMonth(p_oNautilus.getServerDate());
+                
+        if (lnMonth == 1){
+            lnMonth = 12;
+            lnYear -= 1;
+        } else {
+            lnMonth -= 1; 
+        }
+        return ClassifyABC(lnYear, lnMonth);        
     }
     
     public boolean ClassifyABC(int fnYear, int fnMonth){
-        if (fnMonth == p_oNautilus.getServerDate().getMonth()){
+        if (fnMonth == MiscUtil.getDateMonth(p_oNautilus.getServerDate())){
             p_sMessage = "Classification of current month is not allowed.";
             return false;
         }
@@ -608,5 +618,61 @@ public class SPROQProc {
                 " WHERE a.sTransNox = b.sTransNox" + 
                     " AND a.cTranStat NOT IN ('3')" + 
                     " AND DATE_FORMAT(a.dTransact, '%Y%m') = " + SQLUtil.toSQL(fsPeriod);
+    }
+    
+    private String getSQ_LastClassify(String fsPeriodxx){
+        return "SELECT" +
+                    "  c.sBarCodex" +
+                    ", c.sDescript" +
+                    ", IFNULL(d.sDescript, '') sBrandNme" +
+                    ", b.sPeriodxx" +
+                    ", b.cClassify" +
+                    ", b.nAvgMonSl" +
+                    ", b.nMinLevel" +
+                    ", b.nMaxLevel" +
+                    ", IFNULL(e.nQtyOnHnd, 0) nQtyOnHnd" +
+                    ", c.nSelPrce1" +
+                    ", c.nUnitPrce" +
+                " FROM Inv_Classification_Master a" +
+                    ", Inv_Classification_Detail b" +
+                        " LEFT JOIN Inventory c" +
+                            " LEFT JOIN Brand d" +
+                            " ON c.sBrandCde = d.sBrandCde" +
+                            " LEFT JOIN Inv_Master e" +
+                            " ON c.sStockIDx = e.sStockIDx AND e.sBranchCd = " + SQLUtil.toSQL(p_sBranchCd) +
+                        " ON b.sStockIDx = c.sStockIDx" +
+                " WHERE a.sPeriodxx = b.sPeriodxx" +
+                    " AND a.sBranchCd = b.sBranchCd" +
+                    " AND a.sInvTypCd = b.sInvTypCd" +
+                    " AND a.sPeriodxx = " + SQLUtil.toSQL(fsPeriodxx) +
+                " ORDER BY b.nTotlSumP";
+    }
+    
+    public ResultSet getLastClassify(){        
+        String lsSQL = "SELECT" + 
+                            " sPeriodxx" + 
+                        " FROM Inv_Classification_Master" +
+                        " WHERE sBranchCd = " + SQLUtil.toSQL(p_sBranchCd) +
+                            " AND sInvTypCd = 'SP'" +
+                            " AND cTranStat = '2'" +
+                        " ORDER BY sPeriodxx DESC LIMIT 1";
+        
+        ResultSet loRS = p_oNautilus.executeQuery(lsSQL);
+        
+        try {
+            if (!loRS.next()){
+                p_sMessage = "No classification history found.";
+                return null;
+            }
+            
+            lsSQL = getSQ_LastClassify(loRS.getString("sPeriodxx"));
+            MiscUtil.close(loRS);
+            
+            return p_oNautilus.executeQuery(lsSQL);
+        } catch (SQLException e) {
+            p_sMessage = e.getMessage();
+            e.printStackTrace();
+            return null;
+        }
     }
 }
