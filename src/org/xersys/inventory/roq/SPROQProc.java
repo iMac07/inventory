@@ -624,7 +624,7 @@ public class SPROQProc {
         return "SELECT" +
                     "  c.sBarCodex" +
                     ", c.sDescript" +
-                    ", IFNULL(d.sDescript, '') sBrandNme" +
+                    ", IFNULL(d.sDescript, 'NONE') sBrandNme" +
                     ", b.sPeriodxx" +
                     ", b.cClassify" +
                     ", b.nAvgMonSl" +
@@ -633,14 +633,24 @@ public class SPROQProc {
                     ", IFNULL(e.nQtyOnHnd, 0) nQtyOnHnd" +
                     ", c.nSelPrce1" +
                     ", c.nUnitPrce" +
+                    ", b.nMaxLevel - (IFNULL(e.nQtyOnHnd, 0) + IFNULL(f.nQuantity, 0)) nRecOrder" +
                 " FROM Inv_Classification_Master a" +
                     ", Inv_Classification_Detail b" +
                         " LEFT JOIN Inventory c" +
                             " LEFT JOIN Brand d" +
-                            " ON c.sBrandCde = d.sBrandCde" +
+                            " ON c.sBrandCde = d.sBrandCde AND d.sInvTypCd = 'SP'" +
                             " LEFT JOIN Inv_Master e" +
                             " ON c.sStockIDx = e.sStockIDx AND e.sBranchCd = " + SQLUtil.toSQL(p_sBranchCd) +
-                        " ON b.sStockIDx = c.sStockIDx" +
+                        " ON b.sStockIDx = c.sStockIDx AND c.sInvTypCd = 'SP'" +
+                        " LEFT JOIN (SELECT" +
+                                        "  a.sStockIDx" +
+                                        ", SUM(a.nQuantity - a.nCancelld - a.nReceived) nQuantity" +
+                                    " FROM PO_Detail a" +
+					", PO_Master b" +
+                                    " WHERE a.sTransNox = b.sTransNox" +
+					" AND b.cTranStat IN ('1', '2')" +
+                                    " GROUP BY a.sStockIDx) f" +
+                        " ON b.sStockIDx = f.sStockIDx" +
                 " WHERE a.sPeriodxx = b.sPeriodxx" +
                     " AND a.sBranchCd = b.sBranchCd" +
                     " AND a.sInvTypCd = b.sInvTypCd" +
