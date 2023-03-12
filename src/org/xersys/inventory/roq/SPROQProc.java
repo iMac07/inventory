@@ -7,7 +7,6 @@ import java.util.Date;
 import javax.sql.rowset.CachedRowSet;
 import javax.sql.rowset.RowSetFactory;
 import javax.sql.rowset.RowSetProvider;
-import javax.xml.soap.Detail;
 import org.xersys.commander.iface.XNautilus;
 import org.xersys.commander.util.CommonUtil;
 import org.xersys.commander.util.MiscUtil;
@@ -624,7 +623,7 @@ public class SPROQProc {
         return "SELECT" +
                     "  c.sBarCodex" +
                     ", c.sDescript" +
-                    ", IFNULL(d.sDescript, '') sBrandNme" +
+                    ", IFNULL(d.sDescript, 'NONE') sBrandNme" +
                     ", b.sPeriodxx" +
                     ", b.cClassify" +
                     ", b.nAvgMonSl" +
@@ -633,6 +632,7 @@ public class SPROQProc {
                     ", IFNULL(e.nQtyOnHnd, 0) nQtyOnHnd" +
                     ", c.nSelPrce1" +
                     ", c.nUnitPrce" +
+                    ", b.nMaxLevel - (IFNULL(e.nQtyOnHnd, 0) + IFNULL(f.nQuantity, 0)) nRecOrder" +
                 " FROM Inv_Classification_Master a" +
                     ", Inv_Classification_Detail b" +
                         " LEFT JOIN Inventory c" +
