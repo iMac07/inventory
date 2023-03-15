@@ -640,7 +640,7 @@ public class SPROQProc {
                             " ON c.sBrandCde = d.sBrandCde AND d.sInvTypCd = 'SP'" +
                             " LEFT JOIN Inv_Master e" +
                             " ON c.sStockIDx = e.sStockIDx AND e.sBranchCd = " + SQLUtil.toSQL(p_sBranchCd) +
-                        " ON b.sStockIDx = c.sStockIDx" +
+                        " ON b.sStockIDx = c.sStockIDx AND c.sInvTypCd = 'SP'" +
                         " LEFT JOIN (SELECT" +
                                         "  a.sStockIDx" +
                                         ", SUM(a.nQuantity - a.nCancelld - a.nReceived) nQuantity" +

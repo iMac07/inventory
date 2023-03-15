@@ -283,6 +283,25 @@ public class MCSerial implements XRecord{
         }
     }
     
+    public ResultSet getJOHistory(){
+        if ("".equals((String) getMaster("sSerialID"))) return null;
+        
+        String lsSQL = "SELECT" + 
+                            "  DATE_FORMAT(b.dTransact, '%Y-%m-%d') dTransact" +
+                            ", b.sJobDescr" +
+                            ", e.sClientNm sMechanic" +
+                            ", d.sDescript sLaborNme" +
+                        " FROM Inv_Serial a" +
+                            " LEFT JOIN Job_Order_Master b ON  a.sSerialID = b.sSerialID" +
+                            " LEFT JOIN Job_Order_Detail c ON b.sTransNox = c.sTransNox" +
+                            " LEFT JOIN Labor d ON c.sLaborCde = d.sLaborCde" +
+                            " LEFT JOIN Client_Master e ON b.sMechanic = e.sClientID" +
+                        " WHERE a.sSerialID = " + SQLUtil.toSQL((String) getMaster("sSerialID")) +
+                        " ORDER BY b.dTransact DESC";
+        
+        return p_oNautilus.executeQuery(lsSQL);
+    }
+    
     public JSONObject searchSerial(String fsKey, Object foValue, boolean fbExact){
         p_oSerial.setKey(fsKey);
         p_oSerial.setValue(foValue);
