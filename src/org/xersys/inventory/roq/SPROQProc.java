@@ -645,15 +645,54 @@ public class SPROQProc {
                                         "  a.sStockIDx" +
                                         ", SUM(a.nQuantity - a.nCancelld - a.nReceived) nQuantity" +
                                     " FROM PO_Detail a" +
-					", PO_Master b" +
+                                        ", PO_Master b" +
                                     " WHERE a.sTransNox = b.sTransNox" +
-					" AND b.cTranStat IN ('1', '2')" +
+                                        " AND b.cTranStat IN ('1', '2')" +
                                     " GROUP BY a.sStockIDx) f" +
                         " ON b.sStockIDx = f.sStockIDx" +
                 " WHERE a.sPeriodxx = b.sPeriodxx" +
                     " AND a.sBranchCd = b.sBranchCd" +
                     " AND a.sInvTypCd = b.sInvTypCd" +
                     " AND a.sPeriodxx = " + SQLUtil.toSQL(fsPeriodxx) +
+                " ORDER BY b.nTotlSumP";
+    }
+    
+    private String getSQ_ForReplenishment(String fsPeriodxx){
+        return "SELECT" +
+                    "  c.sBarCodex" +
+                    ", c.sDescript" +
+                    ", IFNULL(d.sDescript, 'NONE') sBrandNme" +
+                    ", b.sPeriodxx" +
+                    ", b.cClassify" +
+                    ", b.nAvgMonSl" +
+                    ", b.nMinLevel" +
+                    ", b.nMaxLevel" +
+                    ", IFNULL(e.nQtyOnHnd, 0) nQtyOnHnd" +
+                    ", c.nSelPrce1" +
+                    ", c.nUnitPrce" +
+                    ", b.nMaxLevel - (IFNULL(e.nQtyOnHnd, 0) + IFNULL(f.nQuantity, 0)) nRecOrder" +
+                " FROM Inv_Classification_Master a" +
+                    ", Inv_Classification_Detail b" +
+                        " LEFT JOIN Inventory c" +
+                            " LEFT JOIN Brand d" +
+                            " ON c.sBrandCde = d.sBrandCde AND d.sInvTypCd = 'SP'" +
+                            " LEFT JOIN Inv_Master e" +
+                            " ON c.sStockIDx = e.sStockIDx AND e.sBranchCd = " + SQLUtil.toSQL(p_sBranchCd) +
+                        " ON b.sStockIDx = c.sStockIDx" +
+                        " LEFT JOIN (SELECT" +
+                                        "  a.sStockIDx" +
+                                        ", SUM(a.nQuantity - a.nCancelld - a.nReceived) nQuantity" +
+                                    " FROM PO_Detail a" +
+                                        ", PO_Master b" +
+                                    " WHERE a.sTransNox = b.sTransNox" +
+                                        " AND b.cTranStat IN ('1', '2')" +
+                                    " GROUP BY a.sStockIDx) f" +
+                        " ON b.sStockIDx = f.sStockIDx" +
+                " WHERE a.sPeriodxx = b.sPeriodxx" +
+                    " AND a.sBranchCd = b.sBranchCd" +
+                    " AND a.sInvTypCd = b.sInvTypCd" +
+                    " AND a.sPeriodxx = " + SQLUtil.toSQL(fsPeriodxx) +
+                " HAVING nRecOrder > 0" +
                 " ORDER BY b.nTotlSumP";
     }
     
@@ -675,6 +714,34 @@ public class SPROQProc {
             }
             
             lsSQL = getSQ_LastClassify(loRS.getString("sPeriodxx"));
+            MiscUtil.close(loRS);
+            
+            return p_oNautilus.executeQuery(lsSQL);
+        } catch (SQLException e) {
+            p_sMessage = e.getMessage();
+            e.printStackTrace();
+            return null;
+        }
+    }
+    
+    public ResultSet getForReplenisment(){        
+        String lsSQL = "SELECT" + 
+                            " sPeriodxx" + 
+                        " FROM Inv_Classification_Master" +
+                        " WHERE sBranchCd = " + SQLUtil.toSQL(p_sBranchCd) +
+                            " AND sInvTypCd = 'SP'" +
+                            " AND cTranStat = '2'" +
+                        " ORDER BY sPeriodxx DESC LIMIT 1";
+        
+        ResultSet loRS = p_oNautilus.executeQuery(lsSQL);
+        
+        try {
+            if (!loRS.next()){
+                p_sMessage = "No classification history found.";
+                return null;
+            }
+            
+            lsSQL = getSQ_ForReplenishment(loRS.getString("sPeriodxx"));
             MiscUtil.close(loRS);
             
             return p_oNautilus.executeQuery(lsSQL);
